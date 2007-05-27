@@ -1,5 +1,4 @@
 #define NATPMP_PORT 5351
-#define NATPMP_MAX_PAYLOADSIZE 112
 
 #define NATPMP_VERSION 0
 #define NATPMP_ANSFLAG 0x80
@@ -33,11 +32,6 @@ typedef struct{
 
 typedef struct {
 	_natpmp_header header;
-	char _data[NATPMP_MAX_PAYLOADSIZE];
-} natpmp_packet;
-
-typedef struct {
-	_natpmp_header header;
 } natpmp_packet_dummy_request, natpmp_packet_publicipaddress_request;
 
 typedef struct {
@@ -62,3 +56,15 @@ typedef struct {
 	_natpmp_answer answer;
 	_natpmp_mapping mapping;
 } natpmp_packet_map_answer;
+
+typedef union {
+	natpmp_packet_dummy_request dummy;
+	natpmp_packet_publicipaddress_request publicipaddress;
+	natpmp_packet_map_request map;
+} natpmp_packet_request;
+
+typedef union {
+	natpmp_packet_dummy_answer dummy;
+	natpmp_packet_publicipaddress_answer publicipaddress;
+	natpmp_packet_map_answer map;
+} natpmp_packet_answer;

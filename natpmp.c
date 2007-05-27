@@ -1,7 +1,9 @@
 #include <arpa/inet.h>
 #include <sys/types.h>
+#include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <net/if.h>
 #include <poll.h>
 
 #include <errno.h>
@@ -13,24 +15,32 @@
 
 #include "natpmp_defs.h"
 
+#define PUBLIC_IFNAME "eth0"
+
 /* time this daemon has been started or tables got refreshed */
 time_t timestamp;
 
 /* list of socked file descriptors */
-struct pollfd * sfd_v;
+struct pollfd * ufd_v;
 /* number of sockets */
-int sfd_c;
+int ufd_c;
 
 /* close all sockets and free allocated memory */
 void close_sockets() {
 	int i;
-	for (i=0; i<sfd_c; i++) {
-		close(sfd_v[i].fd);
+	for (i=0; i<ufd_c; i++) {
+		close(ufd_v[i].fd);
 	}
-	free(sfd_v);
+	free(ufd_v);
 }
 
-/* function for clean dying */
+/* functions for clean dieing */
+void die(const char * e) {
+	fprintf(stderr, "%s\n", e);
+	close_sockets();
+	exit(EXIT_FAILURE);
+}
+
 void p_die(const char * p) {
 	perror(p);
 	close_sockets();
@@ -38,23 +48,23 @@ void p_die(const char * p) {
 }
 
 /* function for sending, if t_addr is given */
-void udp_send_r(const int sfd, const struct sockaddr_in * t_addr, const void * data, const size_t len) {
-	int err = sendto(sfd, data, len, MSG_DONTROUTE, (struct sockaddr *) t_addr, sizeof(*t_addr));
+void udp_send_r(const int fd, const struct sockaddr_in * t_addr, const void * data, const size_t len) {
+	int err = sendto(fd, data, len, MSG_DONTROUTE, (struct sockaddr *) t_addr, sizeof(struct sockaddr_in));
 	if (err == -1) p_die("sendto");
 }
 
 #if 0
 /* function for sending, if only destination address and port are given */
-void udp_send(int sfd, in_addr_t address, in_port_t port, void * data, size_t len) {
+void udp_send(int ufd, uint32_t address, uint16_t port, void * data, size_t len) {
 	/* construct target socket address */
 	struct sockaddr_in t_addr;
-	memset(&t_addr, 0, sizeof(t_addr));
+	memset(&t_addr, 0, sizeof(struct sockaddr_in));
 	t_addr.sin_family = AF_INET;
 	t_addr.sin_port = htons(port);
 	t_addr.sin_addr.s_addr = htonl(address);
 
 	/* send it */
-	udp_send_r(sfd, &t_addr, data, len);
+	udp_send_r(ufd, &t_addr, data, len);
 }
 #endif
 
@@ -64,7 +74,7 @@ uint32_t get_epoch() {
 };
 
 /* being called on unsupported requests */
-void unsupported(const int sfd, const uint16_t result, const natpmp_packet_dummy_request * packet,
+void unsupported(const int ufd, const uint16_t result, const natpmp_packet_dummy_request * packet,
 		const struct sockaddr_in * t_addr) {
 	natpmp_packet_dummy_answer answer_packet;
 	answer_packet.header.version = NATPMP_VERSION;
@@ -72,19 +82,20 @@ void unsupported(const int sfd, const uint16_t result, const natpmp_packet_dummy
 	answer_packet.header.op = packet->header.op | NATPMP_ANSFLAG;
 	answer_packet.answer.result = result;
 	answer_packet.answer.epoch = get_epoch();
-	udp_send_r(sfd, t_addr, &answer_packet, sizeof(answer_packet));
+	udp_send_r(ufd, t_addr, &answer_packet, sizeof(natpmp_packet_dummy_answer));
 }
 
 /* initialize and bind udp */
-void udp_init(int * sfd, const char * listen_address, const in_port_t listen_port)
+void udp_init(int * ufd, const char * listen_address, const uint16_t listen_port)
 {
 	/* create UDP socket */
-	*sfd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
-	if (*sfd == -1) p_die("socket");
+	//*ufd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	*ufd = socket(PF_INET, SOCK_DGRAM, 0);
+	if (*ufd == -1) p_die("socket");
 
 	/* store local address and port to bind to */
 	struct sockaddr_in s_addr;
-	memset(&s_addr, 0, sizeof(s_addr));
+	memset(&s_addr, 0, sizeof(struct sockaddr_in));
 	s_addr.sin_family = AF_INET;
 	s_addr.sin_port = htons(listen_port);
 	{
@@ -94,7 +105,7 @@ void udp_init(int * sfd, const char * listen_address, const in_port_t listen_por
 
 	/* bind here */
 	{
-		int err = bind(*sfd, (struct sockaddr *) &s_addr, sizeof(s_addr));
+		int err = bind(*ufd, (struct sockaddr *) &s_addr, sizeof(struct sockaddr_in));
 		if (err == -1) p_die("bind");
 	}
 }
@@ -112,25 +123,42 @@ void fork_to_background() {
 }
 #endif
 
+/* function that returns local ip address of an interface */
+struct in_addr get_ip_address(const char * ifname) {
+	struct ifreq req;
+	if (strlen(ifname) >= sizeof(req.ifr_ifrn.ifrn_name) - 1 ) die("Name of interface too long.");
+	strcpy(req.ifr_ifrn.ifrn_name, ifname);
+	{
+		int tfd = socket(PF_INET, SOCK_STREAM, 0);
+		int err = ioctl(tfd, SIOCGIFADDR, &req);
+		close(tfd);
+		if (err == -1) p_die("ioctl(SIOCGIFADDR)");
+	}
+	struct sockaddr_in * req_addr = (struct sockaddr_in *) &req.ifr_ifru.ifru_addr;
+	return (struct in_addr) req_addr->sin_addr;
+}
+
 int main() {
 	/* set timestamp TODO move to where tables get (re)loaded */
 	timestamp = time(NULL);
 
 	/* allocate memory for sockets */
-	sfd_c = 1;
-	sfd_v = malloc(sfd_c * sizeof(*sfd_v));
-	if (sfd_v == NULL) p_die("malloc");
+	ufd_c = 1;
+	ufd_v = malloc(ufd_c * sizeof(struct pollfd));
+	if (ufd_v == NULL) p_die("malloc");
 
 	/* initialize sockets */
 	{
 		int i;
-		for (i=0; i<sfd_c; i++); {
-			udp_init(&sfd_v[i].fd, "0.0.0.0", NATPMP_PORT);
+		for (i=0; i<ufd_c; i++); {
+			udp_init(&ufd_v[i].fd, "0.0.0.0", NATPMP_PORT);
 
 			/* prepare data structures for poll */
-			sfd_v[i].events = POLLIN;
+			ufd_v[i].events = POLLIN;
 		}
 	}
+
+	printf("IP address of %s: %s\n", PUBLIC_IFNAME, inet_ntoa(get_ip_address(PUBLIC_IFNAME)));
 
 	/* fork into background */
 	//fork_to_background();
@@ -142,51 +170,64 @@ int main() {
 		/* main loop */
 		while (1) {
 			/* construct packet, where the received data ist stored to */
-			natpmp_packet packet;
-			memset(&packet, 0, sizeof(packet));
+			natpmp_packet_request packet_request;
+			memset(&packet_request, 0, sizeof(natpmp_packet_request));
 
 			/* there, the information of the sender are stored to */
 			socklen_t t_len;
 			struct sockaddr_in t_addr;
-			memset(&t_addr, 0, sizeof(t_addr));
+			memset(&t_addr, 0, sizeof(struct sockaddr_in));
 
 			/* wait until something is received */
 			{
-				int err = poll(sfd_v, sfd_c, -1);
+				int err = poll(ufd_v, ufd_c, -1);
 				if (err == -1) p_die("poll");
 			}
 
-			ssize_t err;
+			ssize_t pkgsize;
 			while (1) {
-				if (++s_i >= sfd_c) s_i = 0;
-				err = recvfrom(sfd_v[s_i].fd, &packet, sizeof(packet), MSG_DONTWAIT,
+				if (++s_i >= ufd_c) s_i = 0;
+				pkgsize = recvfrom(ufd_v[s_i].fd, &packet_request, sizeof(natpmp_packet_request), MSG_DONTWAIT,
 						(struct sockaddr *) &t_addr, &t_len);
-				if (err == -1) p_die("recvfrom");
-				if (err != EAGAIN && err != 0) break;
+				if (pkgsize == -1) p_die("recvfrom");
+				if (pkgsize != EAGAIN && pkgsize != 0) break;
 			}
 
+			/* check for wrong, unsupported packets */
+			if (pkgsize < sizeof(natpmp_packet_dummy_request)) continue; /* TODO errorlog */
+			if (packet_request.dummy.header.version != NATPMP_VERSION) {
+				unsupported(ufd_v[s_i].fd, NATPMP_UNSUPPORTEDVERSION, &packet_request.dummy, &t_addr);
+				continue;
+			}
+			if (packet_request.dummy.header.op & NATPMP_ANSFLAG) continue;
+
 			/* do things depending on the packet's content */
-			if (err < sizeof(natpmp_packet_dummy_request)) continue; /* TODO errorlog */
-			if (packet.header.version != NATPMP_VERSION)
-				unsupported(sfd_v[s_i].fd, NATPMP_UNSUPPORTEDVERSION,
-						(natpmp_packet_dummy_request *) &packet, &t_addr);
-			if (packet.header.op & NATPMP_ANSFLAG) continue;
-			switch (packet.header.op) {
+			natpmp_packet_answer packet_answer;
+			size_t packet_size;
+			switch (packet_request.dummy.header.op) {
 				case NATPMP_PUBLICIPADDRESS :
-					if (err != sizeof(natpmp_packet_publicipaddress_request)) continue; /* TODO errorlog */
-					/* TODO */
+					if (pkgsize != sizeof(natpmp_packet_publicipaddress_request)) continue; /* TODO errorlog */
+					packet_size = sizeof(natpmp_packet_publicipaddress_answer);
+					packet_answer.publicipaddress.public_ip_address = get_ip_address(PUBLIC_IFNAME).s_addr;
 					break;
 				case NATPMP_MAP_UDP :
-					if (err != sizeof(natpmp_packet_map_request)) continue; /* TODO errorlog */
+					if (pkgsize != sizeof(natpmp_packet_map_request)) continue; /* TODO errorlog */
+					packet_size = sizeof(natpmp_packet_map_answer);
 					/* TODO */
 					break;
 				case NATPMP_MAP_TCP :
-					if (err != sizeof(natpmp_packet_map_request)) continue; /* TODO errorlog */
+					if (pkgsize != sizeof(natpmp_packet_map_request)) continue; /* TODO errorlog */
+					packet_size = sizeof(natpmp_packet_map_answer);
 					/* TODO */
 					break;
 				default :
-					unsupported(sfd_v[s_i].fd, NATPMP_UNSUPPORTEDOP, (natpmp_packet_dummy_request *) &packet, &t_addr);
+					unsupported(ufd_v[s_i].fd, NATPMP_UNSUPPORTEDOP, (natpmp_packet_dummy_request *) &packet_request, &t_addr);
+					continue;
 			}
+			packet_answer.dummy.header.version = NATPMP_VERSION;
+			packet_answer.dummy.header.op = packet_request.dummy.header.op & NATPMP_ANSFLAG;
+			packet_answer.dummy.answer.epoch = get_epoch();
+			udp_send_r(ufd_v[s_i].fd, &t_addr, &packet_answer, packet_size);
 		}
 	}
 
