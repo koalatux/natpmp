@@ -39,14 +39,14 @@ typedef struct {
 } _natpmp_header;
 
 typedef struct{
-	uint16_t result;
-	uint32_t epoch;
+	uint16_t result __attribute__ ((packed));
+	uint32_t epoch __attribute__ ((packed));
 } _natpmp_answer;
 
 typedef struct{
-	in_port_t private_port;
-	in_port_t public_port;
-	uint32_t lifetime;
+	in_port_t private_port __attribute__ ((packed));
+	in_port_t public_port __attribute__ ((packed));
+	uint32_t lifetime __attribute__ ((packed));
 } _natpmp_mapping;
 
 
@@ -62,7 +62,7 @@ typedef struct {
 typedef struct {
 	_natpmp_header header;
 	_natpmp_answer answer;
-	in_addr_t public_ip_address;
+	in_addr_t public_ip_address __attribute__ ((packed));
 } natpmp_packet_publicipaddress_answer;
 
 typedef struct {
