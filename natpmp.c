@@ -182,7 +182,7 @@ int main() {
 	/* initialize sockets */
 	{
 		int i;
-		for (i=0; i<ufd_c; i++); {
+		for (i=0; i<ufd_c; i++) {
 			udp_init(&ufd_v[i].fd, "0.0.0.0", NATPMP_PORT);
 
 			/* prepare data structures for poll */
