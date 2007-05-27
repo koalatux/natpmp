@@ -205,20 +205,22 @@ int main() {
 			natpmp_packet_request packet_request;
 			memset(&packet_request, 0, sizeof(natpmp_packet_request));
 
-			/* there, the information of the sender are stored to */
-			socklen_t t_len;
-			struct sockaddr_in t_addr;
-			memset(&t_addr, 0, sizeof(struct sockaddr_in));
-
 			/* wait until something is received */
 			{
 				int err = poll(ufd_v, ufd_c, -1);
 				if (err == -1) p_die("poll");
 			}
 
+			/* there, the information of the sender are stored to */
+			struct sockaddr_in t_addr;
+
 			ssize_t pkgsize;
 			while (1) {
 				if (++s_i >= ufd_c) s_i = 0;
+
+				memset(&t_addr, 0, sizeof(struct sockaddr_in));
+				socklen_t t_len = sizeof(struct sockaddr_in);
+
 				pkgsize = recvfrom(ufd_v[s_i].fd, &packet_request, sizeof(natpmp_packet_request), MSG_DONTWAIT,
 						(struct sockaddr *) &t_addr, &t_len);
 				if (pkgsize == -1) p_die("recvfrom");
