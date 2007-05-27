@@ -90,7 +90,7 @@ void udp_send(int ufd, uint32_t address, uint16_t port, void * data, size_t len)
 
 /* return seconds since daemon started */
 uint32_t get_epoch() {
-	return time(NULL) - timestamp;
+	return htonl(time(NULL) - timestamp);
 };
 
 /* function that returns local ip address of an interface */
