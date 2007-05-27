@@ -34,7 +34,7 @@ void close_sockets() {
 	free(ufd_v);
 }
 
-/* functions for clean dieing */
+/* functions for clean dying */
 void die(const char * e) {
 	fprintf(stderr, "%s\n", e);
 	close_sockets();
@@ -73,21 +73,48 @@ uint32_t get_epoch() {
 	return time(NULL) - timestamp;
 };
 
+/* function that returns local ip address of an interface */
+struct in_addr get_ip_address(const char * ifname) {
+	struct ifreq req;
+	if (strlen(ifname) >= sizeof(req.ifr_ifrn.ifrn_name) - 1 ) die("Name of interface too long.");
+	strcpy(req.ifr_ifrn.ifrn_name, ifname);
+	{
+		int tfd = socket(PF_INET, SOCK_STREAM, 0);
+		int err = ioctl(tfd, SIOCGIFADDR, &req);
+		close(tfd);
+		if (err == -1) p_die("ioctl(SIOCGIFADDR)");
+	}
+	struct sockaddr_in * req_addr = (struct sockaddr_in *) &req.ifr_ifru.ifru_addr;
+	return (struct in_addr) req_addr->sin_addr;
+}
+
+/* send a NAT-PMP packet */
+void send_natpmp_packet(const int ufd, const struct sockaddr_in * t_addr, natpmp_packet_answer * packet, size_t size) {
+	packet->dummy.header.version = NATPMP_VERSION;
+	packet->dummy.header.op |= NATPMP_ANSFLAG;
+	packet->dummy.answer.epoch = get_epoch();
+	udp_send_r(ufd, t_addr, packet, size);
+}
+
 /* being called on unsupported requests */
-void unsupported(const int ufd, const uint16_t result, const natpmp_packet_dummy_request * packet,
-		const struct sockaddr_in * t_addr) {
-	natpmp_packet_dummy_answer answer_packet;
-	answer_packet.header.version = NATPMP_VERSION;
-	/* it's not defined which op should be sent on undefined versions, so this should be ok, too */
-	answer_packet.header.op = packet->header.op | NATPMP_ANSFLAG;
-	answer_packet.answer.result = result;
-	answer_packet.answer.epoch = get_epoch();
-	udp_send_r(ufd, t_addr, &answer_packet, sizeof(natpmp_packet_dummy_answer));
+void unsupported(const int ufd, const struct sockaddr_in * t_addr, const natpmp_packet_dummy_request * request_packet, const uint16_t result) {
+	natpmp_packet_answer answer_packet;
+	answer_packet.dummy.header.op = request_packet->header.op;
+	answer_packet.dummy.answer.result = result;
+	send_natpmp_packet(ufd, t_addr, &answer_packet, sizeof(natpmp_packet_dummy_answer));
+}
+
+/* answer with public IP address */
+void send_publicipaddress(const int ufd, const struct sockaddr_in * t_addr) {
+	natpmp_packet_answer packet;
+	packet.publicipaddress.header.op = NATPMP_PUBLICIPADDRESS;
+	packet.publicipaddress.answer.result = NATPMP_SUCCESS;
+	packet.publicipaddress.public_ip_address = get_ip_address(PUBLIC_IFNAME).s_addr;
+	send_natpmp_packet(ufd, t_addr, &packet, sizeof(natpmp_packet_publicipaddress_answer));
 }
 
 /* initialize and bind udp */
-void udp_init(int * ufd, const char * listen_address, const uint16_t listen_port)
-{
+void udp_init(int * ufd, const char * listen_address, const uint16_t listen_port) {
 	/* create UDP socket */
 	//*ufd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	*ufd = socket(PF_INET, SOCK_DGRAM, 0);
@@ -122,21 +149,6 @@ void fork_to_background() {
 	}
 }
 #endif
-
-/* function that returns local ip address of an interface */
-struct in_addr get_ip_address(const char * ifname) {
-	struct ifreq req;
-	if (strlen(ifname) >= sizeof(req.ifr_ifrn.ifrn_name) - 1 ) die("Name of interface too long.");
-	strcpy(req.ifr_ifrn.ifrn_name, ifname);
-	{
-		int tfd = socket(PF_INET, SOCK_STREAM, 0);
-		int err = ioctl(tfd, SIOCGIFADDR, &req);
-		close(tfd);
-		if (err == -1) p_die("ioctl(SIOCGIFADDR)");
-	}
-	struct sockaddr_in * req_addr = (struct sockaddr_in *) &req.ifr_ifru.ifru_addr;
-	return (struct in_addr) req_addr->sin_addr;
-}
 
 int main() {
 	/* set timestamp TODO move to where tables get (re)loaded */
@@ -193,41 +205,34 @@ int main() {
 				if (pkgsize != EAGAIN && pkgsize != 0) break;
 			}
 
-			/* check for wrong, unsupported packets */
+			/* check for wrong or unsupported packets */
 			if (pkgsize < sizeof(natpmp_packet_dummy_request)) continue; /* TODO errorlog */
 			if (packet_request.dummy.header.version != NATPMP_VERSION) {
-				unsupported(ufd_v[s_i].fd, NATPMP_UNSUPPORTEDVERSION, &packet_request.dummy, &t_addr);
+				unsupported(ufd_v[s_i].fd, &t_addr, &packet_request.dummy, NATPMP_UNSUPPORTEDVERSION);
 				continue;
 			}
 			if (packet_request.dummy.header.op & NATPMP_ANSFLAG) continue;
 
 			/* do things depending on the packet's content */
-			natpmp_packet_answer packet_answer;
-			size_t packet_size;
 			switch (packet_request.dummy.header.op) {
 				case NATPMP_PUBLICIPADDRESS :
 					if (pkgsize != sizeof(natpmp_packet_publicipaddress_request)) continue; /* TODO errorlog */
-					packet_size = sizeof(natpmp_packet_publicipaddress_answer);
-					packet_answer.publicipaddress.public_ip_address = get_ip_address(PUBLIC_IFNAME).s_addr;
+					send_publicipaddress(ufd_v[s_i].fd, &t_addr);
 					break;
 				case NATPMP_MAP_UDP :
 					if (pkgsize != sizeof(natpmp_packet_map_request)) continue; /* TODO errorlog */
-					packet_size = sizeof(natpmp_packet_map_answer);
+					//packet_size = sizeof(natpmp_packet_map_answer);
 					/* TODO */
 					break;
 				case NATPMP_MAP_TCP :
 					if (pkgsize != sizeof(natpmp_packet_map_request)) continue; /* TODO errorlog */
-					packet_size = sizeof(natpmp_packet_map_answer);
+					//packet_size = sizeof(natpmp_packet_map_answer);
 					/* TODO */
 					break;
 				default :
-					unsupported(ufd_v[s_i].fd, NATPMP_UNSUPPORTEDOP, (natpmp_packet_dummy_request *) &packet_request, &t_addr);
+					unsupported(ufd_v[s_i].fd, &t_addr, (natpmp_packet_dummy_request *) &packet_request, NATPMP_UNSUPPORTEDOP);
 					continue;
 			}
-			packet_answer.dummy.header.version = NATPMP_VERSION;
-			packet_answer.dummy.header.op = packet_request.dummy.header.op & NATPMP_ANSFLAG;
-			packet_answer.dummy.answer.epoch = get_epoch();
-			udp_send_r(ufd_v[s_i].fd, &t_addr, &packet_answer, packet_size);
 		}
 	}
 
