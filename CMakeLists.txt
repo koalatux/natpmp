@@ -1,2 +1,2 @@
 PROJECT(natpmp)
-ADD_EXECUTABLE(natpmp natpmp.c)
+ADD_EXECUTABLE(natpmp natpmp.c die.c leases.c)

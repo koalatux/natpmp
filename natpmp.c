@@ -33,38 +33,48 @@
 #include <unistd.h>
 #include <time.h>
 
+#include "die.h"
+#include "leases.h"
+#include "natpmp.h"
 #include "natpmp_defs.h"
 
-#define PUBLIC_IFNAME "eth0"
-
 /* time this daemon has been started or tables got refreshed */
-time_t timestamp;
+uint32_t timestamp;
+
+/* list of leases */
+extern lease * leases;
+/* number of allocated leases */
+extern int lease_a;
+/* number of leases */
+extern int lease_c;
 
 /* list of socked file descriptors */
 struct pollfd * ufd_v;
 /* number of sockets */
 int ufd_c;
 
+/* function for allocating memory */
+void allocate_all() {
+	/* allocate memory for leases */
+	lease_c = 0;
+	lease_a = ALLOCATE_AMOUNT;
+	leases = malloc(ALLOCATE_AMOUNT * sizeof(lease));
+	if (leases == NULL) p_die("malloc");
+
+	/* allocate memory for sockets */
+	ufd_c = 1;
+	ufd_v = malloc(ufd_c * sizeof(struct pollfd));
+	if (ufd_v == NULL) p_die("malloc");
+}
+
 /* close all sockets and free allocated memory */
-void close_sockets() {
+void close_all() {
 	int i;
 	for (i=0; i<ufd_c; i++) {
 		close(ufd_v[i].fd);
 	}
 	free(ufd_v);
-}
-
-/* functions for clean dying */
-void die(const char * e) {
-	fprintf(stderr, "%s\n", e);
-	close_sockets();
-	exit(EXIT_FAILURE);
-}
-
-void p_die(const char * p) {
-	perror(p);
-	close_sockets();
-	exit(EXIT_FAILURE);
+	free(leases);
 }
 
 /* function for sending, if t_addr is given */
@@ -171,13 +181,11 @@ void fork_to_background() {
 #endif
 
 int main() {
+	/* allocate some memory and set some variables */
+	allocate_all();
+
 	/* set timestamp TODO move to where tables get (re)loaded */
 	timestamp = time(NULL);
-
-	/* allocate memory for sockets */
-	ufd_c = 1;
-	ufd_v = malloc(ufd_c * sizeof(struct pollfd));
-	if (ufd_v == NULL) p_die("malloc");
 
 	/* initialize sockets */
 	{
@@ -259,7 +267,7 @@ int main() {
 	}
 
 	/* clean up */
-	close_sockets();
+	close_all();
 
 	return 0;
 }
