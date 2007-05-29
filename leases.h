@@ -26,9 +26,11 @@
 typedef struct {
 	uint32_t expires;
 	/* The variables below are stored in network byte order */
+	uint32_t client;
 	uint16_t private_port;
 	uint16_t mapped_port;
-	uint32_t client;
+	/* protocols: 0x1 tcp, 0x2 udp */
+	char protocols; 
 } lease;
 
 
