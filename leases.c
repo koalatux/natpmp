@@ -31,6 +31,7 @@ int lease_a;
 /* number of leases */
 int lease_c;
 
+/* function that reallocates space for at minimum amount leases */
 void allocate_leases(int amount) {
 	if (amount > lease_a) {
 		lease_a += ALLOCATE_AMOUNT;
@@ -45,14 +46,41 @@ void allocate_leases(int amount) {
 	if (leases == NULL) p_die("realloc");
 }
 
+/* function that adds a lease to the list of leases */
 int add_lease(lease * a) {
 	allocate_leases(lease_c + 1);
 	memcpy(&leases[lease_c], a, sizeof(lease));
 	return lease_c++;
 }
 
+/* function that removes a lease from the list of leases */
 void remove_lease(int i) {
 	lease_c--;
 	memmove(&leases[i], &leases[i+1], (lease_c-i) * sizeof(lease));
 	allocate_leases(lease_c);
+}
+
+/* function that removes a lease from the list of leases with a given pointer to the lease */
+void remove_lease_by_pointer(lease * a) {
+	/* TODO */
+}
+
+/* function that returns a lease pointer by mapped port number, NULL if port number is still unmapped */
+lease * get_lease_by_port(uint16_t port) {
+	/* TODO */
+}
+
+/* function that returns a lease pointer by client ip address and private port numnber, NULL if no lease found */
+lease * get_lease_by_client_port(uint32_t client, uint16_t port) {
+	/* TODO */
+}
+
+/* function that returns a pointer to the next lease by client ip address, NULL if no leases found, prev is the pointer to the lease from where to search from, NULL to search from beginning */
+lease * get_next_lease_by_client(uint32_t client, lease * prev) {
+	/* TODO */
+}
+
+/* function that returns a pointer to the next expired lease, Null if no leases found, provide the actual time with now, prev is the pointer to the lease from where to search from, NULL to search from beginning */
+lease * get_next_expired_lease(uint32_t now, lease * prev) {
+	/* TODO */
 }

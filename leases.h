@@ -29,11 +29,16 @@ typedef struct {
 	uint32_t client;
 	uint16_t private_port;
 	uint16_t mapped_port;
-	/* protocols: 0x1 tcp, 0x2 udp */
-	char protocols; 
+	/* protocols: 0x1 tcp, 0x2 udp; 0x0 means no mapping assigned but this port is somehow reserved for that client */
+	char protocols;
 } lease;
 
 
 void allocate_leases(int amount);
 int add_lease(lease * a);
 void remove_lease(int i);
+void remove_lease_by_pointer(lease * a);
+lease * get_lease_by_port(uint16_t port);
+lease * get_lease_by_client_port(uint32_t client, uint16_t port);
+lease * get_next_lease_by_client(uint32_t client, lease * prev);
+lease * get_next_expired_lease(uint32_t now, lease * prev);
