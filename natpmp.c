@@ -19,10 +19,10 @@
 
 
 #include <arpa/inet.h>
-#include <sys/types.h>
+//#include <sys/types.h>
 #include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
+//#include <sys/socket.h>
+//#include <netinet/in.h>
 #include <net/if.h>
 #include <poll.h>
 
@@ -82,21 +82,6 @@ void udp_send_r(const int fd, const struct sockaddr_in * t_addr, const void * da
 	int err = sendto(fd, data, len, MSG_DONTROUTE, (struct sockaddr *) t_addr, sizeof(struct sockaddr_in));
 	if (err == -1) p_die("sendto");
 }
-
-#if 0
-/* function for sending, if only destination address and port are given */
-void udp_send(int ufd, uint32_t address, uint16_t port, void * data, size_t len) {
-	/* construct target socket address */
-	struct sockaddr_in t_addr;
-	memset(&t_addr, 0, sizeof(struct sockaddr_in));
-	t_addr.sin_family = AF_INET;
-	t_addr.sin_port = htons(port);
-	t_addr.sin_addr.s_addr = htonl(address);
-
-	/* send it */
-	udp_send_r(ufd, &t_addr, data, len);
-}
-#endif
 
 /* return seconds since daemon started */
 uint32_t get_epoch() {
@@ -167,7 +152,6 @@ void udp_init(int * ufd, const char * listen_address, const uint16_t listen_port
 	}
 }
 
-#if 0
 /* function to fork to background and exit parent */
 void fork_to_background() {
 	pid_t child = fork();
@@ -178,9 +162,17 @@ void fork_to_background() {
 		exit(EXIT_SUCCESS);
 	}
 }
-#endif
 
 int main() {
+	/* fork into background */
+	//fork_to_background();
+
+	/* register function being called on exit() */
+	{
+		int err = atexit(close_all);
+		if (err != 0) die("atexit");
+	}
+
 	/* allocate some memory and set some variables */
 	allocate_all();
 
@@ -198,10 +190,7 @@ int main() {
 		}
 	}
 
-	printf("IP address of %s: %s\n", PUBLIC_IFNAME, inet_ntoa(get_ip_address(PUBLIC_IFNAME)));
-
-	/* fork into background */
-	//fork_to_background();
+	fprintf(stderr, "IP address of %s: %s\n", PUBLIC_IFNAME, inet_ntoa(get_ip_address(PUBLIC_IFNAME)));
 
 	{
 		/* socket index */

@@ -22,15 +22,13 @@
 
 #include "die.h"
 
-/* functions for clean dying */
+/* functions for dying with error messages */
 void die(const char * e) {
 	fprintf(stderr, "%s\n", e);
-	close_all();
 	exit(EXIT_FAILURE);
 }
 
 void p_die(const char * p) {
 	perror(p);
-	close_all();
 	exit(EXIT_FAILURE);
 }
