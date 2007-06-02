@@ -37,6 +37,7 @@ typedef struct {
 void allocate_leases(int amount);
 int add_lease(lease * a);
 void remove_lease(int i);
+int get_index_by_pointer(lease * a);
 void remove_lease_by_pointer(lease * a);
 lease * get_lease_by_port(uint16_t port);
 lease * get_lease_by_client_port(uint32_t client, uint16_t port);

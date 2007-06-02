@@ -60,27 +60,57 @@ void remove_lease(int i) {
 	allocate_leases(lease_c);
 }
 
+/* function that returns the index of a lease pointer */
+int get_index_by_pointer(lease * a) {
+	int i = (a - leases) / sizeof(lease);
+	if (i >= 0 && i <= lease_c) return i;
+	else {
+		die("remove_lease_by_pointer(): invalid pointer");
+		return -1; /* program will never be here, only for suppress the warning */
+	}
+}
+
 /* function that removes a lease from the list of leases with a given pointer to the lease */
 void remove_lease_by_pointer(lease * a) {
-	/* TODO */
+	remove_lease( get_index_by_pointer(a) );
 }
 
 /* function that returns a lease pointer by mapped port number, NULL if port number is still unmapped */
 lease * get_lease_by_port(uint16_t port) {
-	/* TODO */
+	int i;
+	for (i=0; i<lease_c; i++) {
+		if (leases[i].mapped_port == port) return &leases[i];
+	}
+	return NULL;
 }
 
 /* function that returns a lease pointer by client ip address and private port numnber, NULL if no lease found */
 lease * get_lease_by_client_port(uint32_t client, uint16_t port) {
-	/* TODO */
+	int i;
+	for (i=0; i<lease_c; i++) {
+		if (leases[i].client == client && leases[i].private_port == port) return &leases[i];
+	}
+	return NULL;
 }
 
 /* function that returns a pointer to the next lease by client ip address, NULL if no leases found, prev is the pointer to the lease from where to search from, NULL to search from beginning */
 lease * get_next_lease_by_client(uint32_t client, lease * prev) {
-	/* TODO */
+	int i;
+	if (prev == NULL) i = 0;
+	else i = get_index_by_pointer(prev);
+	for (; i<lease_c; i++) {
+		if (leases[i].client == client) return &leases[i];
+	}
+	return NULL;
 }
 
-/* function that returns a pointer to the next expired lease, Null if no leases found, provide the actual time with now, prev is the pointer to the lease from where to search from, NULL to search from beginning */
+/* function that returns a pointer to the next expired lease, NULL if no leases found, provide the actual time with now, prev is the pointer to the lease from where to search from, NULL to search from beginning */
 lease * get_next_expired_lease(uint32_t now, lease * prev) {
-	/* TODO */
+	int i;
+	if (prev == NULL) i = 0;
+	else i = get_index_by_pointer(prev);
+	for (; i<lease_c; i++) {
+		if (leases[i].expires <= now) return &leases[i];
+	}
+	return NULL;
 }
