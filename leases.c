@@ -66,7 +66,6 @@ int get_index_by_pointer(lease * a) {
 	if (i >= 0 && i <= lease_c) return i;
 	else {
 		die("remove_lease_by_pointer(): invalid pointer");
-		return -1; /* program will never be here, only for suppress the warning */
 	}
 }
 

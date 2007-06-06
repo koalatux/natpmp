@@ -18,5 +18,5 @@
  */
 
 
-void die(const char * e);
-void p_die(const char * p);
+void die(const char * e) __attribute__ ((noreturn)) ;
+void p_die(const char * p) __attribute__ ((noreturn)) ;

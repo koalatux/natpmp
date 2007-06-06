@@ -23,12 +23,12 @@
 #include "die.h"
 
 /* functions for dying with error messages */
-void die(const char * e) {
+void die(const char * e) __attribute__ ((noreturn)) {
 	fprintf(stderr, "%s\n", e);
 	exit(EXIT_FAILURE);
 }
 
-void p_die(const char * p) {
+void p_die(const char * p) __attribute__ ((noreturn)) {
 	perror(p);
 	exit(EXIT_FAILURE);
 }
