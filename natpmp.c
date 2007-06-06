@@ -225,7 +225,7 @@ int main() {
 			}
 
 			/* check for wrong or unsupported packets */
-			if (pkgsize < sizeof(natpmp_packet_dummy_request)) continue; /* TODO errorlog */
+			if (pkgsize < (ssize_t) sizeof(natpmp_packet_dummy_request)) continue; /* TODO errorlog */
 			if (packet_request.dummy.header.version != NATPMP_VERSION) {
 				unsupported(ufd_v[s_i].fd, &t_addr, &packet_request.dummy, NATPMP_UNSUPPORTEDVERSION);
 				continue;
