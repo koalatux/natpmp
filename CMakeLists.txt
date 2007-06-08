@@ -20,7 +20,7 @@
 
 PROJECT(natpmp)
 
-ADD_EXECUTABLE(natpmp natpmp.c die.c leases.c)
+ADD_EXECUTABLE(natpmp natpmp.c die.c leases.c dnat_api.c)
 
 # Show me some errors
 ADD_DEFINITIONS(-W -Wall)

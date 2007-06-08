@@ -240,6 +240,12 @@ void fork_to_background() {
 int main() {
 	/* fork into background, must be called before registering atexit functions */
 	//fork_to_background();
+	
+	
+	uint16_t mapped_port = 254;
+	uint32_t client = 0xfff;
+	uint16_t private_port = 3243;
+	create_dnat_rule(1, mapped_port, client, private_port);
 
 	/* register function being called on exit() */
 	{
