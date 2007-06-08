@@ -20,19 +20,23 @@
 
 /*
  * ip addresses and port numbers all are in network byte order!
- * create_dnat_rule() and destroy_dnat_rule() may return 0 instead of 1 as well, this may be restricted in future versions.
- * port numbers in a rule with a port range must be considered as existing but must not get destroyed. return -1 if requested to do so.
+ * create_dnat_rule() and destroy_dnat_rule() must succeed if rule was already there respectively has already gone.
+ * port numbers in a rule with a port range must be considered as existing but must not get destroyed,
+ * destroy_dnat_rule() must return 1 if requested to do so.
  */
 
 /* valid values for protocol */
 #define UDP 1
 #define TCP 2
 
-/* search DNAT rule with given mapped port, return client ip address, 0 if not found and -1 on error, set private_port if not NULL */
-uint32_t get_dnat_ruledest(const char protocol, const uint16_t mapped_port, const uint16_t * private_port);
+/* search DNAT rule for given mapped port, return 1 if found, 0 if not found and -1 on error, set client and private_port if not NULL */
+int get_dnat_rule_by_mapped_port(const char protocol, const uint16_t mapped_port, uint32_t * client, uint16_t * private_port);
 
-/* create a DNAT rule with given mapped port, client ip address and private port, return 0 on success, 1 when rule already existed and -1 on failure */
+/* search DNAT rule for given private port and client, return 1 if found, 0 if not found and -1 on error, set mapped_port if not NULL */
+int get_dnat_rule_by_client_port(const char protocol, uint16_t * mapped_port, const uint32_t client, const uint16_t private_port);
+
+/* create a DNAT rule with given mapped port, client ip address and private port, return 0 on success and -1 on failure */
 int create_dnat_rule(const char protocol, const uint16_t mapped_port, const uint32_t client, const uint16_t private_port);
 
-/* destroy a DNAT rule with given mapped port, client ip address and private port, return 0 on success, 1 when rule not found and -1 on failure */
+/* destroy a DNAT rule with given mapped port, client ip address and private port, return 0 on success, 1 when forbidden and -1 on failure */
 int destroy_dnat_rule(const char protocol, const uint16_t mapped_port, const uint32_t client, const uint16_t private_port);

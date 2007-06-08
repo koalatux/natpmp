@@ -29,7 +29,7 @@ typedef struct {
 	uint32_t client;
 	uint16_t private_port;
 	uint16_t mapped_port;
-	/* protocols: 0x1 tcp, 0x2 udp; 0x0 means no mapping assigned but this port is somehow reserved for that client */
+	/* protocols: 0x1 udp, 0x2 tcp*/
 	char protocols;
 } lease;
 
