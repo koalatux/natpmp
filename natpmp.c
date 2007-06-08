@@ -36,6 +36,7 @@
 #include "die.h"
 #include "leases.h"
 #include "natpmp.h"
+#include "dnat_api.h"
 #include "natpmp_defs.h"
 
 /* time this daemon has been started or tables got refreshed */
