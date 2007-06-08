@@ -38,12 +38,12 @@ typedef struct {
 	uint8_t op;
 } _natpmp_header;
 
-typedef struct{
+typedef struct {
 	uint16_t result __attribute__ ((packed));
 	uint32_t epoch __attribute__ ((packed));
 } _natpmp_answer;
 
-typedef struct{
+typedef struct {
 	in_port_t private_port __attribute__ ((packed));
 	in_port_t public_port __attribute__ ((packed));
 	uint32_t lifetime __attribute__ ((packed));

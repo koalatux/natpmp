@@ -22,8 +22,8 @@ PROJECT(natpmp)
 
 ADD_EXECUTABLE(natpmp natpmp.c die.c leases.c)
 
-# Bad code is evil, so throw errors for everything
-ADD_DEFINITIONS(-W -Wall -Werror)
+# Show me some errors
+ADD_DEFINITIONS(-W -Wall)
 
 # GCC is required
 IF(NOT CMAKE_COMPILER_IS_GNUCC)

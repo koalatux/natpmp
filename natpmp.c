@@ -48,7 +48,7 @@ extern int lease_a;
 /* number of leases */
 extern int lease_c;
 
-/* list of socked file descriptors */
+/* list of socket file descriptors */
 struct pollfd * ufd_v;
 /* number of sockets */
 int ufd_c;
@@ -77,13 +77,13 @@ void close_all() {
 	free(leases);
 }
 
-/* function for sending, if t_addr is given */
+/* function for sending */
 void udp_send_r(const int fd, const struct sockaddr_in * t_addr, const void * data, const size_t len) {
 	int err = sendto(fd, data, len, MSG_DONTROUTE, (struct sockaddr *) t_addr, sizeof(struct sockaddr_in));
 	if (err == -1) p_die("sendto");
 }
 
-/* return seconds since daemon started */
+/* return seconds since daemon started or tables got refreshed */
 uint32_t get_epoch() {
 	return htonl(time(NULL) - timestamp);
 };
@@ -111,8 +111,13 @@ void send_natpmp_packet(const int ufd, const struct sockaddr_in * t_addr, natpmp
 	udp_send_r(ufd, t_addr, packet, size);
 }
 
+/* create or remove mappings */
+void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const natpmp_packet_map_request * request_packet) {
+	/* TODO */
+}
+
 /* being called on unsupported requests */
-void unsupported(const int ufd, const struct sockaddr_in * t_addr, const natpmp_packet_dummy_request * request_packet, const uint16_t result) {
+void handle_unsupported_request(const int ufd, const struct sockaddr_in * t_addr, const natpmp_packet_dummy_request * request_packet, const uint16_t result) {
 	natpmp_packet_answer answer_packet;
 	answer_packet.dummy.header.op = request_packet->header.op;
 	answer_packet.dummy.answer.result = result;
@@ -164,7 +169,7 @@ void fork_to_background() {
 }
 
 int main() {
-	/* fork into background */
+	/* fork into background, must be called before registering atexit functions */
 	//fork_to_background();
 
 	/* register function being called on exit() */
@@ -227,7 +232,7 @@ int main() {
 			/* check for wrong or unsupported packets */
 			if (pkgsize < (ssize_t) sizeof(natpmp_packet_dummy_request)) continue; /* TODO errorlog */
 			if (packet_request.dummy.header.version != NATPMP_VERSION) {
-				unsupported(ufd_v[s_i].fd, &t_addr, &packet_request.dummy, NATPMP_UNSUPPORTEDVERSION);
+				handle_unsupported_request(ufd_v[s_i].fd, &t_addr, &packet_request.dummy, NATPMP_UNSUPPORTEDVERSION);
 				continue;
 			}
 			if (packet_request.dummy.header.op & NATPMP_ANSFLAG) continue;
@@ -239,17 +244,12 @@ int main() {
 					send_publicipaddress(ufd_v[s_i].fd, &t_addr);
 					break;
 				case NATPMP_MAP_UDP :
-					if (pkgsize != sizeof(natpmp_packet_map_request)) continue; /* TODO errorlog */
-					//packet_size = sizeof(natpmp_packet_map_answer);
-					/* TODO */
-					break;
 				case NATPMP_MAP_TCP :
 					if (pkgsize != sizeof(natpmp_packet_map_request)) continue; /* TODO errorlog */
-					//packet_size = sizeof(natpmp_packet_map_answer);
-					/* TODO */
+					handle_map_request(ufd_v[s_i].fd, &t_addr, &packet_request.map);
 					break;
 				default :
-					unsupported(ufd_v[s_i].fd, &t_addr, (natpmp_packet_dummy_request *) &packet_request, NATPMP_UNSUPPORTEDOP);
+					handle_unsupported_request(ufd_v[s_i].fd, &t_addr, &packet_request.dummy, NATPMP_UNSUPPORTEDOP);
 					continue;
 			}
 		}

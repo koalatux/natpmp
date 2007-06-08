@@ -32,7 +32,7 @@ int lease_a;
 int lease_c;
 
 /* function that reallocates space for at minimum amount leases */
-void allocate_leases(int amount) {
+void allocate_leases(const int amount) {
 	if (amount > lease_a) {
 		lease_a += ALLOCATE_AMOUNT;
 	}
@@ -47,21 +47,21 @@ void allocate_leases(int amount) {
 }
 
 /* function that adds a lease to the list of leases */
-int add_lease(lease * a) {
+int add_lease(const lease * a) {
 	allocate_leases(lease_c + 1);
 	memcpy(&leases[lease_c], a, sizeof(lease));
 	return lease_c++;
 }
 
 /* function that removes a lease from the list of leases */
-void remove_lease(int i) {
+void remove_lease(const int i) {
 	lease_c--;
 	memmove(&leases[i], &leases[i+1], (lease_c-i) * sizeof(lease));
 	allocate_leases(lease_c);
 }
 
 /* function that returns the index of a lease pointer */
-int get_index_by_pointer(lease * a) {
+int get_index_by_pointer(const lease * a) {
 	int i = (a - leases) / sizeof(lease);
 	if (i >= 0 && i <= lease_c) return i;
 	else {
@@ -70,12 +70,12 @@ int get_index_by_pointer(lease * a) {
 }
 
 /* function that removes a lease from the list of leases with a given pointer to the lease */
-void remove_lease_by_pointer(lease * a) {
+void remove_lease_by_pointer(const lease * a) {
 	remove_lease( get_index_by_pointer(a) );
 }
 
 /* function that returns a lease pointer by mapped port number, NULL if port number is still unmapped */
-lease * get_lease_by_port(uint16_t port) {
+lease * get_lease_by_port(const uint16_t port) {
 	int i;
 	for (i=0; i<lease_c; i++) {
 		if (leases[i].mapped_port == port) return &leases[i];
@@ -84,7 +84,7 @@ lease * get_lease_by_port(uint16_t port) {
 }
 
 /* function that returns a lease pointer by client ip address and private port numnber, NULL if no lease found */
-lease * get_lease_by_client_port(uint32_t client, uint16_t port) {
+lease * get_lease_by_client_port(const uint32_t client, const uint16_t port) {
 	int i;
 	for (i=0; i<lease_c; i++) {
 		if (leases[i].client == client && leases[i].private_port == port) return &leases[i];
@@ -93,7 +93,7 @@ lease * get_lease_by_client_port(uint32_t client, uint16_t port) {
 }
 
 /* function that returns a pointer to the next lease by client ip address, NULL if no leases found, prev is the pointer to the lease from where to search from, NULL to search from beginning */
-lease * get_next_lease_by_client(uint32_t client, lease * prev) {
+lease * get_next_lease_by_client(const uint32_t client, const lease * prev) {
 	int i;
 	if (prev == NULL) i = 0;
 	else i = get_index_by_pointer(prev);
@@ -104,7 +104,7 @@ lease * get_next_lease_by_client(uint32_t client, lease * prev) {
 }
 
 /* function that returns a pointer to the next expired lease, NULL if no leases found, provide the actual time with now, prev is the pointer to the lease from where to search from, NULL to search from beginning */
-lease * get_next_expired_lease(uint32_t now, lease * prev) {
+lease * get_next_expired_lease(const uint32_t now, const lease * prev) {
 	int i;
 	if (prev == NULL) i = 0;
 	else i = get_index_by_pointer(prev);

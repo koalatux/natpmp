@@ -34,12 +34,12 @@ typedef struct {
 } lease;
 
 
-void allocate_leases(int amount);
-int add_lease(lease * a);
-void remove_lease(int i);
-int get_index_by_pointer(lease * a);
-void remove_lease_by_pointer(lease * a);
-lease * get_lease_by_port(uint16_t port);
-lease * get_lease_by_client_port(uint32_t client, uint16_t port);
-lease * get_next_lease_by_client(uint32_t client, lease * prev);
-lease * get_next_expired_lease(uint32_t now, lease * prev);
+void allocate_leases(const int amount);
+int add_lease(const lease * a);
+void remove_lease(const int i);
+int get_index_by_pointer(const lease * a);
+void remove_lease_by_pointer(const lease * a);
+lease * get_lease_by_port(const uint16_t port);
+lease * get_lease_by_client_port(const uint32_t client, const uint16_t port);
+lease * get_next_lease_by_client(const uint32_t client, const lease * prev);
+lease * get_next_expired_lease(const uint32_t now, const lease * prev);

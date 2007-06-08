@@ -25,10 +25,10 @@
  */
 
 /* search DNAT rule with given mapped port, return client ip address, 0 if not found and -1 on error, set private_port if not NULL */
-uint32_t get_dnat_ruledest(uint16_t mapped_port, uint16_t * private_port);
+uint32_t get_dnat_ruledest(const uint16_t mapped_port, const uint16_t * private_port);
 
 /* create a DNAT rule with given mapped port, client ip address and private port, return 0 on success, 1 when rule already existed and -1 on failure */
-int create_dnat_rule(uint16_t mapped_port, uint32_t client, uint16_t private_port);
+int create_dnat_rule(const uint16_t mapped_port, const uint32_t client, const uint16_t private_port);
 
 /* destroy a DNAT rule with given mapped port, client ip address and private port, return 0 on success, 1 when rule not found and -1 on failure */
-int destroy_dnat_rule(uint16_t mapped_port, uint32_t client, uint16_t private_port);
+int destroy_dnat_rule(const uint16_t mapped_port, const uint32_t client, const uint16_t private_port);
