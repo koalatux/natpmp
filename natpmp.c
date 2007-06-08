@@ -35,9 +35,10 @@
 
 #include "die.h"
 #include "leases.h"
-#include "natpmp.h"
 #include "dnat_api.h"
 #include "natpmp_defs.h"
+
+#define PUBLIC_IFNAME "eth0"
 
 /* time this daemon has been started or tables got refreshed */
 uint32_t timestamp;
