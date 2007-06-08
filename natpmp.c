@@ -116,72 +116,97 @@ void send_natpmp_packet(const int ufd, const struct sockaddr_in * t_addr, natpmp
 /* create or remove mappings */
 void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const natpmp_packet_map_request * request_packet) {
 	char protocol = (char) request_packet->header.op;
+	uint32_t client = t_addr->sin_addr.s_addr;
+
+	/* copy some values to the answer packet */
 	natpmp_packet_map_answer answer_packet;
 	answer_packet.header.op = request_packet->header.op;
 	answer_packet.answer.result = NATPMP_SUCCESS;
-	answer_packet.mapping.public_port = request_packet->mapping.public_port;
-	uint32_t client = t_addr->sin_addr.s_addr;
 	answer_packet.mapping.private_port = request_packet->mapping.private_port;
+	/* remember: public_port and mapped_port are the same, but differ in name for convience, mapped_port is used where a mapping exists. */
+	answer_packet.mapping.public_port = request_packet->mapping.public_port;
 	answer_packet.mapping.lifetime = request_packet->mapping.lifetime;
 
 	if (answer_packet.mapping.lifetime != 0) {
 		/* create a mapping */
 		lease * a = get_lease_by_client_port(client, answer_packet.mapping.private_port);
 		if (a != NULL) {
-			answer_packet.mapping.public_port = a->mapped_port;
+			/* lease exists, answer with mapped port */
+			answer_packet.mapping.mapped_port = a->mapped_port;
 		}
 		else {
+			/* no lease exists, check for manual mapping */
 			uint16_t mapped_port;
 			int b = get_dnat_rule_by_client_port(protocol, &mapped_port, client, answer_packet.mapping.private_port);
 			if (b == -1) die("get_dnat_rule_by_client_port");
 			else if (b == 1) {
-				answer_packet.mapping.public_port = mapped_port;
+				/* manual mapping exists, answer with mapped port */
+				answer_packet.mapping.mapped_port = mapped_port;
 			}
 			else {
-				/* create a lease */
+				/* no lease and no manual mapping exist, create a lease */
 				/* TODO */
 			}
+		}
+
+		if (answer_packet.answer.result == NATPMP_SUCCESS) {
+			/* check lifetime, downgrade if necessary */
+			/* TODO */
+		}
+		else {
+			answer_packet.mapping.lifetime = 0;
 		}
 	}
 	else {
 		/* remove a mapping */
-		lease * a = NULL;
+		lease * a;
+		int remove_all;
 
-		if (answer_packet.mapping.private_port !=0) {
+		if (answer_packet.mapping.mapped_port == 0 && answer_packet.mapping.private_port == 0) {
+			/* removing all mappings of client (but only for requested protocol) */
+			remove_all = 1;
+		}
+		else {
+			/* only removing a single mapping */
+			remove_all = 0;
 			a = get_lease_by_client_port(client, answer_packet.mapping.private_port);
 		}
 
-		while(answer_packet.mapping.private_port != 0 || (a = get_next_lease_by_client(client, NULL)) != NULL) {
+		while(remove_all == 0 || (a = get_next_lease_by_client(client, NULL)) != NULL) {
 			if (a != NULL) {
-				/* change lease in database and remove if necessary */
-				uint16_t mapped_port = a->mapped_port;
-
+				/* update used protocols of lease */
 				a->protocols &= ~protocol;
 				if (a->protocols == 0) {
+					/* lease is no more used, remove it */
 					remove_lease_by_pointer(a);
 				}
 
-				int b = destroy_dnat_rule(protocol, mapped_port, client, answer_packet.mapping.private_port);
+				/* destroy mapping */
+				int b = destroy_dnat_rule(protocol, a->mapped_port, client, a->private_port);
 				if (b == -1) die("destroy_dnat_rule");
 				else if (b == 1) {
+					/* mapping may not be destroyed, it's a manual mapping, answer with refused */
 					answer_packet.answer.result = NATPMP_REFUSED;
 				}
 			}
 			else {
+				/* lease not found, check for manual mapping */
 				int b = get_dnat_rule_by_client_port(protocol, NULL, client, answer_packet.mapping.private_port);
 				if (b == -1) die("get_dnat_rule_by_client_port");
 				else if (b == 1) {
+					/* manual mapping found, answer with refused */
 					answer_packet.answer.result = NATPMP_REFUSED;
 				}
 			}
 		}
 
-		if (answer_packet.mapping.private_port == 0 || answer_packet.answer.result == NATPMP_SUCCESS) {
-			answer_packet.answer.result = NATPMP_SUCCESS;
+		if (answer_packet.answer.result == NATPMP_SUCCESS) {
+			/* result code, public port and lifetime set to 0 indicate a successful deletion */
 			answer_packet.mapping.public_port = 0;
 		}
 	}
 
+	/* fire the packet to the client */
 	send_natpmp_packet(ufd, t_addr, (natpmp_packet_answer *) &answer_packet, sizeof(natpmp_packet_map_answer));
 }
 

@@ -45,7 +45,10 @@ typedef struct {
 
 typedef struct {
 	in_port_t private_port __attribute__ ((packed));
-	in_port_t public_port __attribute__ ((packed));
+	union {
+		in_port_t public_port __attribute__ ((packed));
+		in_port_t mapped_port __attribute__ ((packed));
+	} __attribute__ ((packed));
 	uint32_t lifetime __attribute__ ((packed));
 } _natpmp_mapping;
 
