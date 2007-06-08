@@ -115,24 +115,91 @@ void send_natpmp_packet(const int ufd, const struct sockaddr_in * t_addr, natpmp
 
 /* create or remove mappings */
 void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const natpmp_packet_map_request * request_packet) {
-	/* TODO */
+	char protocol = (char) request_packet->header.op;
+	natpmp_packet_map_answer answer_packet;
+	answer_packet.header.op = request_packet->header.op;
+	answer_packet.answer.result = NATPMP_SUCCESS;
+	answer_packet.mapping.public_port = request_packet->mapping.public_port;
+	uint32_t client = t_addr->sin_addr.s_addr;
+	answer_packet.mapping.private_port = request_packet->mapping.private_port;
+	answer_packet.mapping.lifetime = request_packet->mapping.lifetime;
+
+	if (answer_packet.mapping.lifetime != 0) {
+		/* create a mapping */
+		lease * a = get_lease_by_client_port(client, answer_packet.mapping.private_port);
+		if (a != NULL) {
+			answer_packet.mapping.public_port = a->mapped_port;
+		}
+		else {
+			uint16_t mapped_port;
+			int b = get_dnat_rule_by_client_port(protocol, &mapped_port, client, answer_packet.mapping.private_port);
+			if (b == -1) die("get_dnat_rule_by_client_port");
+			else if (b == 1) {
+				answer_packet.mapping.public_port = mapped_port;
+			}
+			else {
+				/* create a lease */
+				/* TODO */
+			}
+		}
+	}
+	else {
+		/* remove a mapping */
+		lease * a = NULL;
+
+		if (answer_packet.mapping.private_port !=0) {
+			a = get_lease_by_client_port(client, answer_packet.mapping.private_port);
+		}
+
+		while(answer_packet.mapping.private_port != 0 || (a = get_next_lease_by_client(client, NULL)) != NULL) {
+			if (a != NULL) {
+				/* change lease in database and remove if necessary */
+				uint16_t mapped_port = a->mapped_port;
+
+				a->protocols &= ~protocol;
+				if (a->protocols == 0) {
+					remove_lease_by_pointer(a);
+				}
+
+				int b = destroy_dnat_rule(protocol, mapped_port, client, answer_packet.mapping.private_port);
+				if (b == -1) die("destroy_dnat_rule");
+				else if (b == 1) {
+					answer_packet.answer.result = NATPMP_REFUSED;
+				}
+			}
+			else {
+				int b = get_dnat_rule_by_client_port(protocol, NULL, client, answer_packet.mapping.private_port);
+				if (b == -1) die("get_dnat_rule_by_client_port");
+				else if (b == 1) {
+					answer_packet.answer.result = NATPMP_REFUSED;
+				}
+			}
+		}
+
+		if (answer_packet.mapping.private_port == 0 || answer_packet.answer.result == NATPMP_SUCCESS) {
+			answer_packet.answer.result = NATPMP_SUCCESS;
+			answer_packet.mapping.public_port = 0;
+		}
+	}
+
+	send_natpmp_packet(ufd, t_addr, (natpmp_packet_answer *) &answer_packet, sizeof(natpmp_packet_map_answer));
 }
 
 /* being called on unsupported requests */
 void handle_unsupported_request(const int ufd, const struct sockaddr_in * t_addr, const natpmp_packet_dummy_request * request_packet, const uint16_t result) {
-	natpmp_packet_answer answer_packet;
-	answer_packet.dummy.header.op = request_packet->header.op;
-	answer_packet.dummy.answer.result = result;
-	send_natpmp_packet(ufd, t_addr, &answer_packet, sizeof(natpmp_packet_dummy_answer));
+	natpmp_packet_dummy_answer answer_packet;
+	answer_packet.header.op = request_packet->header.op;
+	answer_packet.answer.result = result;
+	send_natpmp_packet(ufd, t_addr, (natpmp_packet_answer *) &answer_packet, sizeof(natpmp_packet_dummy_answer));
 }
 
 /* answer with public IP address */
 void send_publicipaddress(const int ufd, const struct sockaddr_in * t_addr) {
-	natpmp_packet_answer packet;
-	packet.publicipaddress.header.op = NATPMP_PUBLICIPADDRESS;
-	packet.publicipaddress.answer.result = NATPMP_SUCCESS;
-	packet.publicipaddress.public_ip_address = get_ip_address(PUBLIC_IFNAME).s_addr;
-	send_natpmp_packet(ufd, t_addr, &packet, sizeof(natpmp_packet_publicipaddress_answer));
+	natpmp_packet_publicipaddress_answer packet;
+	packet.header.op = NATPMP_PUBLICIPADDRESS;
+	packet.answer.result = NATPMP_SUCCESS;
+	packet.public_ip_address = get_ip_address(PUBLIC_IFNAME).s_addr;
+	send_natpmp_packet(ufd, t_addr, (natpmp_packet_answer *) &packet, sizeof(natpmp_packet_publicipaddress_answer));
 }
 
 /* initialize and bind udp */
