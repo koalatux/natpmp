@@ -39,6 +39,15 @@
 #include "natpmp_defs.h"
 
 #define PUBLIC_IFNAME "eth0"
+#define MAX_LIFETIME 7200 /* recommended value for lifetime: 3600 s */
+#define PORT_RANGE_LOW 1024 /* ports below 1024 are restricted ports */
+#define PORT_RANGE_HIGH 60000 /* 65535 is the highest port available */
+#define PORT_LOW_OFFSET 8000 /* gives us fancy port number 8080 for requested port 80 */
+/* PORT_RANGE_LOW <= PORT_RANGE_HIGH else bahaviour is undefined
+ * PORT_RANGE_HIGH <= 65535 else range not guaranteed
+ * PORT_LOW_OFFSET >= PORT_RANGE_LOW else range not guaranteed
+ * PORT_LOW_OFFSET + PORT_RANGE_LOW + 1 <= 65535 else range not guaranteed
+ * PORT_LOW_OFFSET + PORT_RANGE_LOW + 1 <= PORT_RANGE_HIGH else offset useless, range still guaranteed */
 
 /* time this daemon has been started or tables got refreshed */
 uint32_t timestamp;
@@ -128,10 +137,18 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 	answer_packet.mapping.lifetime = request_packet->mapping.lifetime;
 
 	if (answer_packet.mapping.lifetime != 0) {
-		/* create a mapping */
+		/* creating a mapping is requested */
+
+		if (answer_packet.mapping.lifetime > MAX_LIFETIME) {
+			/* lifetime too high, downgrade */
+			answer_packet.mapping.lifetime = MAX_LIFETIME;
+		}
+
 		lease * a = get_lease_by_client_port(client, answer_packet.mapping.private_port);
 		if (a != NULL) {
-			/* lease exists, answer with mapped port */
+			/* lease exists, add protocol, update expiration time and answer with mapped port */
+			a->protocols |= (char) answer_packet.header.op;
+			a->expires = time(NULL) + ntohl(answer_packet.mapping.lifetime);
 			answer_packet.mapping.mapped_port = a->mapped_port;
 		}
 		else {
@@ -144,17 +161,62 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 				answer_packet.mapping.mapped_port = mapped_port;
 			}
 			else {
-				/* no lease and no manual mapping exist, create a lease */
-				/* TODO */
-			}
-		}
+				/* no lease and no manual mapping exist, find a valid port and create a lease */
 
-		if (answer_packet.answer.result == NATPMP_SUCCESS) {
-			/* check lifetime, downgrade if necessary */
-			/* TODO */
-		}
-		else {
-			answer_packet.mapping.lifetime = 0;
+				/* assure the port is in the allowed range */
+				if (answer_packet.mapping.public_port < PORT_RANGE_LOW)
+					answer_packet.mapping.public_port += PORT_LOW_OFFSET;
+				if (answer_packet.mapping.public_port > PORT_RANGE_HIGH)
+					answer_packet.mapping.public_port = answer_packet.mapping.public_port %
+						(PORT_RANGE_HIGH - PORT_RANGE_LOW + 1) + PORT_RANGE_LOW;
+
+				/* find a free port */
+				uint16_t try_count = 0;
+				while (1) {
+					if (try_count++ > PORT_RANGE_HIGH - PORT_RANGE_LOW) {
+						/* all ports checked, no free port found, restore variables and answer with out of resources */
+						answer_packet.mapping.public_port = request_packet->mapping.public_port;
+						answer_packet.mapping.lifetime = request_packet->mapping.lifetime;
+						answer_packet.answer.result = NATPMP_OUTOFRESOURCES;
+						break;
+					}
+					if (get_lease_by_port(answer_packet.mapping.public_port) == NULL &&
+							get_dnat_rule_by_mapped_port(TCP, answer_packet.mapping.public_port, NULL, NULL) == 0 &&
+							get_dnat_rule_by_mapped_port(UDP, answer_packet.mapping.public_port, NULL, NULL) == 0) {
+						/* TODO: acquiring the companion port to a manual mapping can be allowed to the same client */
+						/* these parameters are valid for mapping */
+
+						/* add the lease to the database */
+						{
+							lease c;
+							c.expires = time(NULL) + ntohl(answer_packet.mapping.lifetime);
+							c.client = client;
+							c.private_port = answer_packet.mapping.private_port;
+							c.mapped_port = answer_packet.mapping.mapped_port;
+							c.protocols = (char) answer_packet.header.op;
+							add_lease(&c);
+						}
+
+						/* create the mapping*/
+						{
+							int c = create_dnat_rule(
+									answer_packet.header.op,
+									answer_packet.mapping.mapped_port,
+									client,
+									answer_packet.mapping.private_port);
+							if (c == -1) die("create_dnat_rule");
+						}
+						break;
+					}
+
+					if (answer_packet.mapping.public_port >= PORT_RANGE_HIGH) {
+						answer_packet.mapping.public_port = PORT_RANGE_LOW;
+					}
+					else {
+						answer_packet.mapping.public_port++;
+					}
+				}
+			}
 		}
 	}
 	else {
@@ -220,6 +282,7 @@ void handle_unsupported_request(const int ufd, const struct sockaddr_in * t_addr
 
 /* answer with public IP address */
 void send_publicipaddress(const int ufd, const struct sockaddr_in * t_addr) {
+	/* TODO: answer with Network Failure if no ip address found on the public port */
 	natpmp_packet_publicipaddress_answer packet;
 	packet.header.op = NATPMP_PUBLICIPADDRESS;
 	packet.answer.result = NATPMP_SUCCESS;
