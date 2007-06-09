@@ -266,11 +266,13 @@ int main() {
 	/* fork into background, must be called before registering atexit functions */
 	//fork_to_background();
 	
-	
-	uint16_t mapped_port = 254;
-	uint32_t client = 0xfff;
-	uint16_t private_port = 3243;
-	create_dnat_rule(1, mapped_port, client, private_port);
+	/* test create_dnat_rule() XXX */
+	{
+		struct in_addr address;
+		inet_aton("192.168.1.2", &address);
+		create_dnat_rule(1, htons(81), address.s_addr, htons(80));
+		create_dnat_rule(2, htons(81), address.s_addr, htons(80));
+	}
 
 	/* register function being called on exit() */
 	{

@@ -1,7 +1,7 @@
 /*
  *    natpmp - an implementation of NAT-PMP
  *    Copyright (C) 2007  Adrian Friedli
- *		(C) 2007  Simon Neininger
+ *    Copyright (C) 2007  Simon Neininger
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -30,10 +30,14 @@
 #include "die.h"
 
 /*
- * ip addresses and port numbers all are in network byte order!
- * create_dnat_rule() and destroy_dnat_rule() must succeed if rule was already there respectively has already gone.
- * port numbers in a rule with a port range must be considered as existing but must not get destroyed,
- * destroy_dnat_rule() must return 1 if requested to do so.
+ * IP addresses and port numbers all are in network byte order!
+ * create_dnat_rule() and destroy_dnat_rule() must succeed if rule was already
+ * there respectively has already gone.
+ * Port numbers in a rule with a port range must be considered as existing but
+ * must not get destroyed, destroy_dnat_rule() must return 1 if requested to do
+ * so. Do the same, if the program recognizes that the given rule was not
+ * created by itself, e.g. if the rule is in chain not used by the program. But
+ * only do this, if the underlying system provides such information.
  */
 
 const char* proto(const char protocol)
@@ -72,7 +76,7 @@ int create_dnat_rule(const char protocol, const uint16_t mapped_port, const uint
 
   snprintf(command,sizeof(command),
     "echo iptables -t nat -A natpmp -p %s --dport %d -j DNAT --to-destination %s:%d",
-    proto(protocol),mapped_port,inet_ntoa(client_addr), private_port);
+    proto(protocol),ntohs(mapped_port),inet_ntoa(client_addr), ntohs(private_port));
 
   if(system(command))
     return -1;
