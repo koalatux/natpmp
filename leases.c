@@ -109,7 +109,8 @@ lease * get_next_expired_lease(const uint32_t now, const lease * prev) {
 	if (prev == NULL) i = 0;
 	else i = get_index_by_pointer(prev);
 	for (; i<lease_c; i++) {
-		if (leases[i].expires <= now) return &leases[i];
+		if (leases[i].expires[1] <= now && leases[i].expires[1] != 0) return &leases[i];
+		if (leases[i].expires[2] <= now && leases[i].expires[2] != 0) return &leases[i];
 	}
 	return NULL;
 }

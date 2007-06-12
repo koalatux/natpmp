@@ -24,13 +24,15 @@
 #define ALLOCATE_AMOUNT 8
 
 typedef struct {
-	uint32_t expires;
-	/* The variables below are stored in network byte order */
-	uint32_t client;
+	/* IP addresses and port numbers are stored in network byte order! */
+	/* this is a hack for convience, only the fields 1 and 2 are used in expires */
+	union {
+		uint32_t client;
+		/* protocols are stored with two different expires fields 1 for udp and 2 for tcp, an expires value of 0 indicates an unused protocol */
+		uint32_t expires[3];
+	};
 	uint16_t private_port;
 	uint16_t mapped_port;
-	/* protocols: 0x1 udp, 0x2 tcp*/
-	char protocols;
 } lease;
 
 
