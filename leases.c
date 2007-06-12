@@ -33,6 +33,7 @@ int lease_c;
 
 /* function that reallocates space for at minimum amount leases */
 void allocate_leases(const int amount) {
+	/* TODO: make ALLOCATE_AMOUNT dynamic, depending on the value of lease_a, e.g. between 8 and 64 */
 	if (amount > lease_a) {
 		lease_a += ALLOCATE_AMOUNT;
 	}
@@ -56,6 +57,7 @@ int add_lease(const lease * a) {
 /* function that removes a lease from the list of leases */
 void remove_lease(const int i) {
 	lease_c--;
+	/* TODO: don't fill the gap, better store it's index in a table */
 	memmove(&leases[i], &leases[i+1], (lease_c-i) * sizeof(*leases));
 	allocate_leases(lease_c);
 }
@@ -65,7 +67,7 @@ int get_index_by_pointer(const lease * a) {
 	int i = (a - leases) / sizeof(*leases);
 	if (i >= 0 && i <= lease_c) return i;
 	else {
-		die("get_index_by_pointer(): invalid pointer");
+		die("get_index_by_pointer: invalid pointer");
 	}
 }
 
@@ -109,8 +111,8 @@ lease * get_next_expired_lease(const uint32_t now, const lease * prev) {
 	if (prev == NULL) i = 0;
 	else i = get_index_by_pointer(prev);
 	for (; i<lease_c; i++) {
-		if (leases[i].expires[1] <= now && leases[i].expires[1] != 0) return &leases[i];
-		if (leases[i].expires[2] <= now && leases[i].expires[2] != 0) return &leases[i];
+		if (leases[i].expires[1] <= now && leases[i].expires[1]) return &leases[i];
+		if (leases[i].expires[2] <= now && leases[i].expires[2]) return &leases[i];
 	}
 	return NULL;
 }

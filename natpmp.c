@@ -141,7 +141,7 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 	answer_packet.mapping.public_port = request_packet->mapping.public_port;
 	answer_packet.mapping.lifetime = request_packet->mapping.lifetime;
 
-	if (answer_packet.mapping.lifetime != 0) {
+	if (answer_packet.mapping.lifetime) {
 		/* creating a mapping is requested */
 
 		if (answer_packet.mapping.lifetime > MAX_LIFETIME) {
@@ -322,7 +322,7 @@ void udp_init(int * ufd, const char * listen_address, const uint16_t listen_port
 void fork_to_background() {
 	pid_t child = fork();
 	if (child == -1) p_die("fork");
-	else if (child != 0) {
+	else if (child) {
 		fprintf(stderr, "Forked into background.\n");
 		printf("%i\n", child);
 		exit(EXIT_SUCCESS);
@@ -349,7 +349,7 @@ void read_from_socket(int s_i) {
 	if (pkgsize == EAGAIN) return;
 
 	/* check for wrong or unsupported packets */
-	if (pkgsize < (ssize_t) sizeof(natpmp_packet_dummy_request)) return; /* TODO errorlog */
+	if (pkgsize < (ssize_t) sizeof(natpmp_packet_dummy_request)) return; /* TODO: errorlog */
 	if (packet_request.dummy.header.version != NATPMP_VERSION) {
 		handle_unsupported_request(ufd_v[s_i].fd, &t_addr, &packet_request.dummy, NATPMP_UNSUPPORTEDVERSION);
 		return;
@@ -359,12 +359,12 @@ void read_from_socket(int s_i) {
 	/* do things depending on the packet's op code */
 	switch (packet_request.dummy.header.op) {
 		case NATPMP_PUBLICIPADDRESS :
-			if (pkgsize != sizeof(natpmp_packet_publicipaddress_request)) return; /* TODO errorlog */
+			if (pkgsize != sizeof(natpmp_packet_publicipaddress_request)) return; /* TODO: errorlog */
 			send_publicipaddress(ufd_v[s_i].fd, &t_addr);
 			break;
 		case NATPMP_MAP_UDP :
 		case NATPMP_MAP_TCP :
-			if (pkgsize != sizeof(natpmp_packet_map_request)) return; /* TODO errorlog */
+			if (pkgsize != sizeof(natpmp_packet_map_request)) return; /* TODO: errorlog */
 			handle_map_request(ufd_v[s_i].fd, &t_addr, &packet_request.map);
 			break;
 		default :
@@ -379,11 +379,11 @@ void init() {
 	/* register functions being called on exit() */
 	{
 		int err = atexit(close_all);
-		if (err != 0) die("atexit returned with error");
+		if (err) die("atexit returned with error");
 	}
 
-	/* set timestamp TODO move to where tables get (re)loaded */
-	timestamp = time(NULL);
+	/* set timestamp */
+	timestamp = time(NULL); /* TODO: move to where tables get (re)loaded */
 
 	/* allocate some memory and set some variables */
 	allocate_all();
@@ -422,25 +422,28 @@ int main() {
 	/* main loop */
 	while (42) {
 		/* wait until something's got received or time */
-		{
-			int err = poll(ufd_v, ufd_c, POLL_TIMEOUT);
-			if (err == -1) p_die("poll");
-		}
+		int pollret = poll(ufd_v, ufd_c, POLL_TIMEOUT);
+		if (pollret == -1) p_die("poll");
 
 		/* check for public ip address change */
 		{
 			struct in_addr address = get_ip_address(PUBLIC_IFNAME);
 			if (address.s_addr != public_address.s_addr) {
 				public_address = address;
-				/* TODO announce new address */
+				/* TODO: announce new address */
 			}
 		}
 
 		/* check the sockets if something's got received */
 		{
 			int i;
-			for (i=0; i < ufd_c; i++) {
-				if (ufd_v[i].revents & POLLIN) read_from_socket(i);
+			for (i=0; pollret>0; i++) {
+				if (ufd_v[i].revents) {
+					if (ufd_v[i].revents == POLLIN) read_from_socket(i);
+					/* TODO: handle the three error types differently */
+					else die("a socket file descriptor caused an error");
+					pollret--;
+				}
 			}
 		}
 
@@ -453,7 +456,7 @@ int main() {
 				while ((a = get_next_expired_lease(now, NULL)) != NULL) {
 					/* local function that destroys the mapping */
 					void destroy_expired(const char protocol) {
-						if (a->expires[(int) protocol] <= now && a->expires[(int) protocol] != 0) {
+						if (a->expires[(int) protocol] <= now && a->expires[(int) protocol]) {
 							a->expires[(int) protocol] = 0;
 							int b = destroy_dnat_rule(protocol, a->mapped_port, a->client, a->private_port);
 							if (b == -1) die("destroy_dnat_rule returned with error");
