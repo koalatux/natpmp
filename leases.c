@@ -42,30 +42,30 @@ void allocate_leases(const int amount) {
 	else {
 		return;
 	}
-	leases = realloc(leases, lease_a * sizeof(lease));
+	leases = realloc(leases, lease_a * sizeof(*leases));
 	if (leases == NULL) p_die("realloc");
 }
 
 /* function that adds a lease to the list of leases */
 int add_lease(const lease * a) {
 	allocate_leases(lease_c + 1);
-	memcpy(&leases[lease_c], a, sizeof(lease));
+	memcpy(&leases[lease_c], a, sizeof(*leases));
 	return lease_c++;
 }
 
 /* function that removes a lease from the list of leases */
 void remove_lease(const int i) {
 	lease_c--;
-	memmove(&leases[i], &leases[i+1], (lease_c-i) * sizeof(lease));
+	memmove(&leases[i], &leases[i+1], (lease_c-i) * sizeof(*leases));
 	allocate_leases(lease_c);
 }
 
 /* function that returns the index of a lease pointer */
 int get_index_by_pointer(const lease * a) {
-	int i = (a - leases) / sizeof(lease);
+	int i = (a - leases) / sizeof(*leases);
 	if (i >= 0 && i <= lease_c) return i;
 	else {
-		die("remove_lease_by_pointer(): invalid pointer");
+		die("get_index_by_pointer(): invalid pointer");
 	}
 }
 

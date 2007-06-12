@@ -48,8 +48,7 @@ const char* proto(const char protocol)
   if(protocol == TCP)
       //strcpy(proto,"tcp");
       return "tcp";
-  die("Wrong Protocol");
-  return 0;
+  die("proto: invalid protocol");
 }
   
   
@@ -78,8 +77,7 @@ int create_dnat_rule(const char protocol, const uint16_t mapped_port, const uint
     "echo iptables -t nat -A natpmp -p %s --dport %d -j DNAT --to-destination %s:%d",
     proto(protocol),ntohs(mapped_port),inet_ntoa(client_addr), ntohs(private_port));
 
-  if(system(command))
-    return -1;
+  if(system(command)) return -1;
   return 0;  
 }
 
@@ -88,4 +86,3 @@ int destroy_dnat_rule(const char protocol, const uint16_t mapped_port, const uin
 {
   return 1;
 }
-
