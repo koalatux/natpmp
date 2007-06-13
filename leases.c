@@ -31,6 +31,12 @@ int lease_a;
 /* number of leases */
 int lease_c;
 
+/* time the next lease expires */
+uint32_t next_lease_expires = UINT32_MAX;
+uint32_t ueber_next_lease_expires = UINT32_MAX;
+/* indicates if the next_lease_expires has to be updated, e.g. on change or removal of a lease */
+int update_expires = 0;
+
 /* function that reallocates space for at minimum amount leases */
 void allocate_leases(const int amount) {
 	/* TODO: make ALLOCATE_AMOUNT dynamic, depending on the value of lease_a, e.g. between 8 and 64 */
@@ -108,11 +114,28 @@ lease * get_next_lease_by_client(const uint32_t client, const lease * prev) {
 /* function that returns a pointer to the next expired lease, NULL if no leases found, provide the actual time with now, prev is the pointer to the lease from where to search from, NULL to search from beginning */
 lease * get_next_expired_lease(const uint32_t now, const lease * prev) {
 	int i;
-	if (prev == NULL) i = 0;
+	if (prev == NULL) {
+		ueber_next_lease_expires = UINT32_MAX;
+		i = 0;
+	}
 	else i = get_index_by_pointer(prev);
 	for (; i<lease_c; i++) {
-		if (leases[i].expires[1] <= now && leases[i].expires[1]) return &leases[i];
-		if (leases[i].expires[2] <= now && leases[i].expires[2]) return &leases[i];
+		if (leases[i].expires[1] <= now) return &leases[i];
+		else if (leases[i].expires[1] < ueber_next_lease_expires) ueber_next_lease_expires = leases[i].expires[1];
+		if (leases[i].expires[2] <= now) return &leases[i];
+		else if (leases[i].expires[2] < ueber_next_lease_expires) ueber_next_lease_expires = leases[i].expires[2];
 	}
+	next_lease_expires = ueber_next_lease_expires;
+	update_expires = 0;
 	return NULL;
+}
+
+/* function that updates the next_lease_expires variable */
+void do_update_expires() {
+	int i;
+	next_lease_expires = UINT32_MAX;
+	for (i=0; i<lease_c; i++) {
+		if (leases[i].expires[1] < next_lease_expires) next_lease_expires = leases[i].expires[1];
+		if (leases[i].expires[2] < next_lease_expires) next_lease_expires = leases[i].expires[2];
+	}
 }

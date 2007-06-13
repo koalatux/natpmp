@@ -31,14 +31,15 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include <time.h>
+#include <sys/time.h>
+//#include <time.h>
 
 #include "die.h"
 #include "leases.h"
 #include "dnat_api.h"
 #include "natpmp_defs.h"
 
-#define POLL_TIMEOUT 250 /* ms */
+#define ADDRESS_CHECK_INTERVAL 1 /* s */
 
 #define PUBLIC_IFNAME "eth0"
 #define MAX_LIFETIME 7200 /* recommended value for lifetime: 3600 s */
@@ -57,6 +58,10 @@ struct in_addr public_address;
 /* time this daemon has been started or tables got refreshed */
 uint32_t timestamp;
 
+/* actual time in seconds and microseconds, updated in the main loop */
+uint32_t now;
+uint64_t unow;
+
 /* list of leases */
 extern lease * leases;
 /* number of allocated leases */
@@ -64,10 +69,17 @@ extern int lease_a;
 /* number of leases */
 extern int lease_c;
 
+/* time the next lease expires */
+extern uint32_t next_lease_expires;
+extern int update_expires;
+
 /* list of socket file descriptors */
 struct pollfd * ufd_v;
 /* number of sockets */
 int ufd_c;
+
+/* multicast address for sending address changes to */
+struct sockaddr_in multicast_address;
 
 /* function for allocating memory */
 void allocate_all() {
@@ -101,7 +113,7 @@ void udp_send_r(const int fd, const struct sockaddr_in * t_addr, const void * da
 
 /* return seconds since daemon started or tables got refreshed */
 uint32_t get_epoch() {
-	return htonl(time(NULL) - timestamp);
+	return htonl(now - timestamp);
 };
 
 /* function that returns local ip address of an interface */
@@ -152,7 +164,11 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 		lease * a = get_lease_by_client_port(client, answer_packet.mapping.private_port);
 		if (a != NULL) {
 			/* lease exists, update expiration time of the requested protocol and answer with mapped port */
-			a->expires[(int) protocol] = time(NULL) + ntohl(answer_packet.mapping.lifetime);
+			uint32_t new_expires = now + ntohl(answer_packet.mapping.lifetime);
+			if (new_expires == next_lease_expires);
+			else if (new_expires < next_lease_expires) next_lease_expires = new_expires;
+			else if (a->expires[(int) protocol] <= next_lease_expires) update_expires = 1;
+			a->expires[(int) protocol] = new_expires;
 			answer_packet.mapping.mapped_port = a->mapped_port;
 		}
 		else {
@@ -188,16 +204,18 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 							get_dnat_rule_by_mapped_port(TCP, answer_packet.mapping.public_port, NULL, NULL) == 0 &&
 							get_dnat_rule_by_mapped_port(UDP, answer_packet.mapping.public_port, NULL, NULL) == 0) {
 						/* TODO: acquiring the companion port to a manual mapping can be allowed to the same client */
+						/* TODO: check that no process is listening on the port */
 						/* these parameters are valid for mapping */
 
 						/* add the lease to the database */
 						{
 							lease c;
-							c.expires[UDP] = 0; c.expires[TCP] = 0;
-							c.expires[(int) protocol] = time(NULL) + ntohl(answer_packet.mapping.lifetime);
+							c.expires[UDP] = UINT32_MAX; c.expires[TCP] = UINT32_MAX;
+							c.expires[(int) protocol] = now + ntohl(answer_packet.mapping.lifetime);
 							c.client = client;
 							c.private_port = answer_packet.mapping.private_port;
 							c.mapped_port = answer_packet.mapping.mapped_port;
+							if (c.expires[(int) protocol] < next_lease_expires) next_lease_expires = c.expires[(int) protocol];
 							add_lease(&c);
 						}
 
@@ -249,8 +267,9 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 				}
 
 				/* update used protocols of lease */
-				a->expires[(int) protocol] = 0;
-				if (a->expires[UDP] == 0 && a->expires[TCP] == 0) {
+				if (a->expires[(int) protocol] <= next_lease_expires) update_expires = 1;
+				a->expires[(int) protocol] = UINT32_MAX;
+				if (a->expires[UDP] == UINT32_MAX && a->expires[TCP] == UINT32_MAX) {
 					/* lease is no more used, remove it */
 					remove_lease_by_pointer(a);
 				}
@@ -297,7 +316,6 @@ void send_publicipaddress(const int ufd, const struct sockaddr_in * t_addr) {
 /* initialize and bind udp */
 void udp_init(int * ufd, const char * listen_address, const uint16_t listen_port) {
 	/* create UDP socket */
-	//*ufd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	*ufd = socket(PF_INET, SOCK_DGRAM, 0);
 	if (*ufd == -1) p_die("socket");
 
@@ -305,7 +323,7 @@ void udp_init(int * ufd, const char * listen_address, const uint16_t listen_port
 	struct sockaddr_in s_addr;
 	memset(&s_addr, 0, sizeof(s_addr));
 	s_addr.sin_family = AF_INET;
-	s_addr.sin_port = htons(listen_port);
+	s_addr.sin_port = listen_port;
 	{
 		int err = inet_aton(listen_address, &s_addr.sin_addr);
 		if (err == 0) p_die("inet_aton");
@@ -329,7 +347,7 @@ void fork_to_background() {
 	}
 }
 
-void read_from_socket(int s_i) {
+void read_from_socket(const int s_i) {
 	/* construct packet, where the received data ist stored to */
 	natpmp_packet_request packet_request;
 	memset(&packet_request, 0, sizeof(packet_request));
@@ -372,6 +390,13 @@ void read_from_socket(int s_i) {
 	}
 }
 
+void update_time() {
+	struct timeval a;
+	gettimeofday(&a, NULL);
+	now = a.tv_sec;
+	unow = a.tv_usec;
+}
+
 void init() {
 	/* fork into background, must be called before registering atexit functions */
 	//fork_to_background();
@@ -383,7 +408,8 @@ void init() {
 	}
 
 	/* set timestamp */
-	timestamp = time(NULL); /* TODO: move to where tables get (re)loaded */
+	update_time();
+	timestamp = now; /* TODO: move to where tables get (re)loaded */
 
 	/* allocate some memory and set some variables */
 	allocate_all();
@@ -399,6 +425,12 @@ void init() {
 		}
 	}
 
+	/* fill out the multicast address for sending address changes to */
+	memset(&multicast_address, 0, sizeof(multicast_address));
+	multicast_address.sin_family = AF_INET;
+	multicast_address.sin_port = NATPMP_PORT;
+	multicast_address.sin_addr.s_addr = NATPMP_MULTICAST_ADDRESS;
+
 	public_address = get_ip_address(PUBLIC_IFNAME);
 }
 
@@ -409,28 +441,52 @@ int main() {
 		struct in_addr address;
 		inet_aton("192.168.1.2", &address);
 		create_dnat_rule(1, htons(81), address.s_addr, htons(80));
-		create_dnat_rule(2, htons(81), address.s_addr, htons(80));
+		destroy_dnat_rule(2, htons(81), address.s_addr, htons(80));
 	}
 #endif
 
 	init();
 
+	/* XXX */
 	fprintf(stderr, "IP address of %s: %s\n", PUBLIC_IFNAME, inet_ntoa(public_address));
+	fprintf(stderr, "Multicast address: %s\n", inet_ntoa(multicast_address.sin_addr));
 
-	uint32_t last_run = 0;
+	uint32_t next_address_check = now;
+	uint64_t next_announce_send = UINT64_MAX;
+	int announce_count = 0;
 
 	/* main loop */
 	while (42) {
-		/* wait until something's got received or time */
-		int pollret = poll(ufd_v, ufd_c, POLL_TIMEOUT);
-		if (pollret == -1) p_die("poll");
+		/* wait until something's got received or we have to do somehing else */
+		int pollret;
+		{
+			int timeout1 = (next_address_check - now) * 1000;
+			if (next_announce_send != UINT64_MAX) {
+				int timeout2 = (next_announce_send - unow) / 1000;
+				if (timeout2 < timeout1) timeout1 = timeout2;
+			}
+			if (next_lease_expires != UINT32_MAX) {
+				int timeout3 = (next_lease_expires - now) * 1000;
+				if (timeout3 < timeout1) timeout1 = timeout3;
+			}
+
+			pollret = poll(ufd_v, ufd_c, timeout1);
+			if (pollret == -1) p_die("poll");
+		}
+
+		/* update the current time */
+		update_time();
 
 		/* check for public ip address change */
-		{
+		if (next_address_check <= now) {
+			next_address_check = now + ADDRESS_CHECK_INTERVAL;
 			struct in_addr address = get_ip_address(PUBLIC_IFNAME);
 			if (address.s_addr != public_address.s_addr) {
 				public_address = address;
-				/* TODO: announce new address */
+				/* XXX */
+				fprintf(stderr, "IP address of %s: %s\n", PUBLIC_IFNAME, inet_ntoa(public_address));
+				next_announce_send = unow;
+				announce_count = 0;
 			}
 		}
 
@@ -447,31 +503,54 @@ int main() {
 			}
 		}
 
-		/* destroy expired mappings */
-		{
-			uint32_t now = time(NULL);
-			if (now != last_run) {
-				last_run = now;
-				lease * a;
-				while ((a = get_next_expired_lease(now, NULL)) != NULL) {
-					/* local function that destroys the mapping */
-					void destroy_expired(const char protocol) {
-						if (a->expires[(int) protocol] <= now && a->expires[(int) protocol]) {
-							a->expires[(int) protocol] = 0;
-							int b = destroy_dnat_rule(protocol, a->mapped_port, a->client, a->private_port);
-							if (b == -1) die("destroy_dnat_rule returned with error");
-						}
-					}
-
-					destroy_expired(UDP);
-					destroy_expired(TCP);
-
-					if (a->expires[UDP] == 0 && a->expires[TCP] == 0) {
-						/* lease is no more used, remove it */
-						remove_lease_by_pointer(a);
-					}
+		/* announce the public ip address on change */
+		if (next_announce_send <= unow) {
+			/* TODO: dont send if public_ip_address is invalid */
+			{
+				int i;
+				for (i=0; i<ufd_c; i++) {
+					send_publicipaddress(ufd_v[i].fd, &multicast_address);
 				}
 			}
+			
+
+			if(announce_count < NATPMP_ANNOUNCE_PACKETS) {
+				next_announce_send = unow + (1 << announce_count) * NATPMP_ADDRESS_ANNOUNCE_INTERVAL;
+				announce_count++;
+			}
+			else {
+				next_announce_send = UINT64_MAX;
+				announce_count = 0;
+			}
+		}
+
+		/* destroy expired mappings */
+		if (next_lease_expires <= now) {
+			lease * a;
+			while ((a = get_next_expired_lease(now, NULL)) != NULL) {
+				/* local function that destroys the mapping */
+				void destroy_expired(const char protocol) {
+					if (a->expires[(int) protocol] <= now) {
+						a->expires[(int) protocol] = UINT32_MAX;
+						int b = destroy_dnat_rule(protocol, a->mapped_port, a->client, a->private_port);
+						if (b == -1) die("destroy_dnat_rule returned with error");
+					}
+				}
+
+				destroy_expired(UDP);
+				destroy_expired(TCP);
+
+				if (a->expires[UDP] == UINT32_MAX && a->expires[TCP] == UINT32_MAX) {
+					/* lease is no more used, remove it */
+					remove_lease_by_pointer(a);
+				}
+			}
+		}
+
+		/* update_expires if it hasn't been done by get_next_expired_lease */
+		if (update_expires) {
+			do_update_expires();
+			update_expires = 0;
 		}
 	}
 }

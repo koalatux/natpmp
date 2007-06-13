@@ -28,7 +28,7 @@ typedef struct {
 	/* this is a hack for convience, only the fields 1 and 2 are used in expires */
 	union {
 		uint32_t client;
-		/* protocols are stored with two different expires fields 1 for udp and 2 for tcp, an expires value of 0 indicates an unused protocol */
+		/* protocols are stored with two different expires fields 1 for udp and 2 for tcp, an expires value of UINT32_MAX indicates an unused protocol */
 		uint32_t expires[3];
 	};
 	uint16_t private_port;
@@ -45,3 +45,4 @@ lease * get_lease_by_port(const uint16_t port);
 lease * get_lease_by_client_port(const uint32_t client, const uint16_t port);
 lease * get_next_lease_by_client(const uint32_t client, const lease * prev);
 lease * get_next_expired_lease(const uint32_t now, const lease * prev);
+void do_update_expires();
