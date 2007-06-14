@@ -394,7 +394,7 @@ void update_time() {
 	struct timeval a;
 	gettimeofday(&a, NULL);
 	now = a.tv_sec;
-	unow = a.tv_usec;
+	unow = a.tv_usec + 1000000 * now;
 }
 
 void init() {
@@ -513,8 +513,7 @@ int main() {
 				}
 			}
 			
-
-			if(announce_count < NATPMP_ANNOUNCE_PACKETS) {
+			if (announce_count + 1 < NATPMP_ANNOUNCE_PACKETS) {
 				next_announce_send = unow + (1 << announce_count) * NATPMP_ADDRESS_ANNOUNCE_INTERVAL;
 				announce_count++;
 			}
