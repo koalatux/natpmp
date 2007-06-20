@@ -156,9 +156,9 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 	if (answer_packet.mapping.lifetime) {
 		/* creating a mapping is requested */
 
-		if (answer_packet.mapping.lifetime > MAX_LIFETIME) {
+		if (ntohl(answer_packet.mapping.lifetime) > MAX_LIFETIME) {
 			/* lifetime too high, downgrade */
-			answer_packet.mapping.lifetime = MAX_LIFETIME;
+			answer_packet.mapping.lifetime = htonl(MAX_LIFETIME);
 		}
 
 		lease * a = get_lease_by_client_port(client, answer_packet.mapping.private_port);
@@ -184,11 +184,11 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 				/* no lease and no manual mapping exist, find a valid port and create a lease */
 
 				/* assure the port is in the allowed range */
-				if (answer_packet.mapping.public_port < PORT_RANGE_LOW)
-					answer_packet.mapping.public_port += PORT_LOW_OFFSET;
-				if (answer_packet.mapping.public_port > PORT_RANGE_HIGH)
-					answer_packet.mapping.public_port = answer_packet.mapping.public_port %
-						(PORT_RANGE_HIGH - PORT_RANGE_LOW + 1) + PORT_RANGE_LOW;
+				if (ntohs(answer_packet.mapping.public_port) < PORT_RANGE_LOW)
+					answer_packet.mapping.public_port = htons(ntohs(answer_packet.mapping.public_port) + PORT_LOW_OFFSET);
+				if (ntohs(answer_packet.mapping.public_port) > PORT_RANGE_HIGH)
+					answer_packet.mapping.public_port = htons(ntohs(answer_packet.mapping.public_port) %
+						(PORT_RANGE_HIGH - PORT_RANGE_LOW + 1) + PORT_RANGE_LOW);
 
 				/* find a free port */
 				uint16_t try_count = 0;
@@ -231,11 +231,11 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 						break;
 					}
 
-					if (answer_packet.mapping.public_port >= PORT_RANGE_HIGH) {
-						answer_packet.mapping.public_port = PORT_RANGE_LOW;
+					if (ntohs(answer_packet.mapping.public_port) >= PORT_RANGE_HIGH) {
+						answer_packet.mapping.public_port = htons(PORT_RANGE_LOW);
 					}
 					else {
-						answer_packet.mapping.public_port++;
+						answer_packet.mapping.public_port = htons(ntohs(answer_packet.mapping.public_port) + 1);
 					}
 				}
 			}

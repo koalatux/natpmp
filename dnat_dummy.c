@@ -25,15 +25,15 @@
 
 int get_dnat_rule_by_mapped_port(const char protocol, const uint16_t mapped_port, uint32_t * client, uint16_t * private_port) {
 	printf("get_dnat_rule_by_mapped_port(%hhd, %hu, *, *)\n", protocol, ntohs(mapped_port));
-	*client = 0;
-	*private_port = 0;
+	if (client != NULL) *client = 0;
+	if (private_port != NULL) *private_port = 0;
 	return 0;
 }
 
 int get_dnat_rule_by_client_port(const char protocol, uint16_t * mapped_port, const uint32_t client, const uint16_t private_port) {
 	struct in_addr addr = {client};
 	printf("get_dnat_rule_by_client_port(%hhd, *, %s, %hu)\n", protocol, inet_ntoa(addr), ntohs(private_port));
-	*mapped_port = 0;
+	if (mapped_port != NULL) *mapped_port = 0;
 	return 0;
 }
 
