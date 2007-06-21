@@ -39,9 +39,11 @@
 #include "dnat_api.h"
 #include "natpmp_defs.h"
 
+#define LISTEN_ADDRESS "192.168.2.1"
+#define PUBLIC_IFNAME "eth0"
+
 #define ADDRESS_CHECK_INTERVAL 1 /* s */
 
-#define PUBLIC_IFNAME "eth0"
 #define MAX_LIFETIME 7200 /* recommended value for lifetime: 3600 s */
 #define PORT_RANGE_LOW 1024 /* ports below 1024 are restricted ports */
 #define PORT_RANGE_HIGH 60000 /* 65535 is the highest port available */
@@ -418,7 +420,7 @@ void init() {
 	{
 		int i;
 		for (i=0; i<ufd_c; i++) {
-			udp_init(&ufd_v[i].fd, "0.0.0.0", NATPMP_PORT);
+			udp_init(&ufd_v[i].fd, LISTEN_ADDRESS, NATPMP_PORT);
 
 			/* prepare data structures for poll */
 			ufd_v[i].events = POLLIN;

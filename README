@@ -1,0 +1,46 @@
+Introduction
+------------
+This is an implementation of NAT-PMP written in C. NAT-PMP specifications
+are available at
+
+  http://files.dns-sd.org/draft-cheshire-nat-pmp.txt
+
+
+Authors
+-------
+The main author of this program is
+
+  Adrian Friedli <adi at koalatux dot ch>
+
+Simon Neininger also contributed some code.
+
+
+Supported Platforms
+-------------------
+By now, nothing is supported at all, because it's still in development :-).
+
+Linux support with iptables system calls will be available very soon. A
+nicer interface to the kernel is not planned because there's no stable
+API to use. If you really want to struggle with libiptc, you are welcome.
+
+Other OSes support would not be a big deal. Write me, if you're planning to
+port some code. But you need GCC to compile this program.
+
+
+Features beyond the specifications
+----------------------------------
+* Multiple private interfaces supported.
+* Configurable range for mapable ports.
+* Configurable limit for lifetime.
+* A little test suite written in bash.
+
+
+Limitations
+-----------
+* "Companion ports" are only acquirable to the same private port number.
+  But that should not harm. You can also consider this as a feature.
+* Leases are not permanent over reboots. But this is not required by the
+  specifications. It even could be harmful if clients could not delete a
+  mapping while the machine is rebooting.
+
+See the TODO file for things that might be implemented sometime.
