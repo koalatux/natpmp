@@ -39,9 +39,6 @@
 #include "dnat_api.h"
 #include "natpmp_defs.h"
 
-#define LISTEN_ADDRESS "192.168.2.1"
-#define PUBLIC_IFNAME "eth0"
-
 #define ADDRESS_CHECK_INTERVAL 1 /* s */
 
 #define MAX_LIFETIME 7200 /* recommended value for lifetime: 3600 s */
@@ -53,6 +50,8 @@
  * PORT_LOW_OFFSET >= PORT_RANGE_LOW else range not guaranteed
  * PORT_LOW_OFFSET + PORT_RANGE_LOW + 1 <= 65535 else range not guaranteed
  * PORT_LOW_OFFSET + PORT_RANGE_LOW + 1 <= PORT_RANGE_HIGH else offset useless, range still guaranteed */
+
+char public_ifname[IFNAMSIZ];
 
 /* cache for the public ip address */
 struct in_addr public_address;
@@ -90,11 +89,6 @@ void allocate_all() {
 	lease_a = ALLOCATE_AMOUNT;
 	leases = malloc(ALLOCATE_AMOUNT * sizeof(*leases));
 	if (leases == NULL) p_die("malloc");
-
-	/* allocate memory for sockets */
-	ufd_c = 1;
-	ufd_v = malloc(ufd_c * sizeof(*ufd_v));
-	if (ufd_v == NULL) p_die("malloc");
 }
 
 /* close all sockets and free allocated memory */
@@ -121,7 +115,8 @@ uint32_t get_epoch() {
 /* function that returns local ip address of an interface */
 struct in_addr get_ip_address(const char * ifname) {
 	struct ifreq req;
-	if (strlen(ifname) >= IFNAMSIZ) die("get_ip_address: interface name too long");
+	/* len is already checked at command line parsing */
+	//if (strlen(ifname) >= IFNAMSIZ) die("get_ip_address: interface name too long");
 	strncpy(req.ifr_ifrn.ifrn_name, ifname, IFNAMSIZ);
 	{
 		int tfd = socket(PF_INET, SOCK_STREAM, 0);
@@ -190,7 +185,7 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 					answer_packet.mapping.public_port = htons(ntohs(answer_packet.mapping.public_port) + PORT_LOW_OFFSET);
 				if (ntohs(answer_packet.mapping.public_port) > PORT_RANGE_HIGH)
 					answer_packet.mapping.public_port = htons(ntohs(answer_packet.mapping.public_port) %
-						(PORT_RANGE_HIGH - PORT_RANGE_LOW + 1) + PORT_RANGE_LOW);
+							(PORT_RANGE_HIGH - PORT_RANGE_LOW + 1) + PORT_RANGE_LOW);
 
 				/* find a free port */
 				uint16_t try_count = 0;
@@ -316,7 +311,7 @@ void send_publicipaddress(const int ufd, const struct sockaddr_in * t_addr) {
 }
 
 /* initialize and bind udp */
-void udp_init(int * ufd, const char * listen_address, const uint16_t listen_port) {
+void udp_init(int * ufd, const uint32_t listen_address, const uint16_t listen_port) {
 	/* create UDP socket */
 	*ufd = socket(PF_INET, SOCK_DGRAM, 0);
 	if (*ufd == -1) p_die("socket");
@@ -326,10 +321,7 @@ void udp_init(int * ufd, const char * listen_address, const uint16_t listen_port
 	memset(&s_addr, 0, sizeof(s_addr));
 	s_addr.sin_family = AF_INET;
 	s_addr.sin_port = listen_port;
-	{
-		int err = inet_aton(listen_address, &s_addr.sin_addr);
-		if (err == 0) p_die("inet_aton");
-	}
+	s_addr.sin_addr.s_addr = listen_address;
 
 	/* bind here */
 	{
@@ -343,8 +335,7 @@ void fork_to_background() {
 	pid_t child = fork();
 	if (child == -1) p_die("fork");
 	else if (child) {
-		fprintf(stderr, "Forked into background.\n");
-		printf("%i\n", child);
+		printf("forked into background -- %i\n", child);
 		exit(EXIT_SUCCESS);
 	}
 }
@@ -399,9 +390,102 @@ void update_time() {
 	unow = a.tv_usec + 1000000 * now;
 }
 
-void init() {
+//__attribute__ ((noreturn))
+void print_usage(const char * program_name) {
+	fprintf(stderr, "Usage: %s [-b] -i interface -a address [-a address [...]] -- backend-options\n", program_name);
+	exit(EXIT_FAILURE);
+}
+
+void init(int argc, char * argv[]) {
+	int do_fork = 0;
+
+#define OPTSTRING "bi:a:"
+	/* parse the command line */
+	{
+		extern char *optarg;
+		extern int optind, opterr, optopt;
+		int opt;
+
+		/* get number of addresses to bind to */
+		ufd_c = 0;
+		opterr = 0;
+		while ( (opt = getopt(argc, argv, OPTSTRING)) != -1 ) {
+			if (opt == 'a') ufd_c++;
+		}
+
+		/* allocate memory for sockets */
+		ufd_v = malloc(ufd_c * sizeof(*ufd_v));
+		if (ufd_v == NULL) p_die("malloc");
+		struct in_addr * laddresses = malloc(ufd_c * sizeof(*laddresses));
+		if (laddresses == NULL) p_die("malloc");
+
+		/* parse the command line */
+		int i = 0;
+		optind = 0;
+		opterr = -1;
+		memset(public_ifname, 0, sizeof(public_ifname));
+		while ( (opt = getopt(argc, argv, OPTSTRING)) != -1 ) {
+			switch (opt) {
+				case 'b':
+					do_fork = -1;
+					break;
+				case 'i':
+					if (public_ifname[0]) {
+						fprintf(stderr, "%s: option allowed only once -- i\n", argv[0]);
+						print_usage(argv[0]);
+					}
+					if (optarg[0] == 0) {
+						fprintf(stderr, "%s: argument %i is a bit too short for a valid interface name.\n", argv[0], optind - 1);
+						print_usage(argv[0]);
+					}
+					if (strlen(optarg) >= IFNAMSIZ) {
+						fprintf(stderr, "%s: argument %i is too long for a valid interface name.\n", argv[0], optind - 1);
+						print_usage(argv[0]);
+					}
+					strncpy(public_ifname, optarg, IFNAMSIZ);
+					break;
+				case 'a':
+					if (inet_aton(optarg, &laddresses[i]) == 0) {
+						fprintf(stderr, "%s: argument %i is not a valid ip address.\n", argv[0], optind - 1);
+						print_usage(argv[0]);
+					}
+					i++;
+					break;
+				default:
+					print_usage(argv[0]);
+			}
+		}
+
+		if (public_ifname[0] == 0) {
+			fprintf(stderr, "%s: option required -- i\n", argv[0]);
+			print_usage(argv[0]);
+		}
+
+		if (ufd_c == 0) {
+			fprintf(stderr, "%s: option required -- a\n", argv[0]);
+			print_usage(argv[0]);
+		}
+
+		public_address = get_ip_address(public_ifname);
+		printf("IP address of %s: %s\n", public_ifname, inet_ntoa(public_address));
+
+		/* initialize sockets */
+		for (i=0; i<ufd_c; i++) {
+			udp_init(&ufd_v[i].fd, laddresses[i].s_addr, NATPMP_PORT);
+
+			/* prepare data structures for poll */
+			ufd_v[i].events = POLLIN;
+
+			printf("Listening on %s\n", inet_ntoa(laddresses[i]));
+		}
+
+		free(laddresses);
+		
+		/* TODO: forward the rest of the options to the backend implementations */
+	}
+
 	/* fork into background, must be called before registering atexit functions */
-	//fork_to_background();
+	if (do_fork) fork_to_background();
 
 	/* register functions being called on exit() */
 	{
@@ -416,27 +500,14 @@ void init() {
 	/* allocate some memory and set some variables */
 	allocate_all();
 
-	/* initialize sockets */
-	{
-		int i;
-		for (i=0; i<ufd_c; i++) {
-			udp_init(&ufd_v[i].fd, LISTEN_ADDRESS, NATPMP_PORT);
-
-			/* prepare data structures for poll */
-			ufd_v[i].events = POLLIN;
-		}
-	}
-
 	/* fill out the multicast address for sending address changes to */
 	memset(&multicast_address, 0, sizeof(multicast_address));
 	multicast_address.sin_family = AF_INET;
 	multicast_address.sin_port = NATPMP_PORT;
 	multicast_address.sin_addr.s_addr = NATPMP_MULTICAST_ADDRESS;
-
-	public_address = get_ip_address(PUBLIC_IFNAME);
 }
 
-int main() {
+int main(int argc, char * argv[]) {
 #if 0
 	/* test create_dnat_rule() XXX */
 	{
@@ -447,11 +518,7 @@ int main() {
 	}
 #endif
 
-	init();
-
-	/* XXX */
-	fprintf(stderr, "IP address of %s: %s\n", PUBLIC_IFNAME, inet_ntoa(public_address));
-	fprintf(stderr, "Multicast address: %s\n", inet_ntoa(multicast_address.sin_addr));
+	init(argc, argv);
 
 	uint32_t next_address_check = now;
 	uint64_t next_announce_send = UINT64_MAX;
@@ -482,11 +549,11 @@ int main() {
 		/* check for public ip address change */
 		if (next_address_check <= now) {
 			next_address_check = now + ADDRESS_CHECK_INTERVAL;
-			struct in_addr address = get_ip_address(PUBLIC_IFNAME);
+			struct in_addr address = get_ip_address(public_ifname);
 			if (address.s_addr != public_address.s_addr) {
 				public_address = address;
 				/* XXX */
-				fprintf(stderr, "IP address of %s: %s\n", PUBLIC_IFNAME, inet_ntoa(public_address));
+				fprintf(stderr, "ip address of %s: %s\n", public_ifname, inet_ntoa(public_address));
 				next_announce_send = unow;
 				announce_count = 0;
 			}
@@ -514,7 +581,7 @@ int main() {
 					send_publicipaddress(ufd_v[i].fd, &multicast_address);
 				}
 			}
-			
+
 			if (announce_count + 1 < NATPMP_ANNOUNCE_PACKETS) {
 				next_announce_send = unow + (1 << announce_count) * NATPMP_ADDRESS_ANNOUNCE_INTERVAL;
 				announce_count++;
