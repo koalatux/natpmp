@@ -41,17 +41,16 @@
 
 #define ADDRESS_CHECK_INTERVAL 1 /* s */
 
-#define MAX_LIFETIME 7200 /* recommended value for lifetime: 3600 s */
-#define PORT_RANGE_LOW 1024 /* ports below 1024 are restricted ports */
-#define PORT_RANGE_HIGH 60000 /* 65535 is the highest port available */
-#define PORT_LOW_OFFSET 8000 /* gives us fancy port number 8080 for requested port 80 */
-/* PORT_RANGE_LOW <= PORT_RANGE_HIGH else bahaviour is undefined
- * PORT_RANGE_HIGH <= 65535 else range not guaranteed
- * PORT_LOW_OFFSET >= PORT_RANGE_LOW else range not guaranteed
- * PORT_LOW_OFFSET + PORT_RANGE_LOW + 1 <= 65535 else range not guaranteed
- * PORT_LOW_OFFSET + PORT_RANGE_LOW + 1 <= PORT_RANGE_HIGH else offset useless, range still guaranteed */
-
+/* the name of the public interface */
 char public_ifname[IFNAMSIZ];
+/* maximum lifetime of a lease */
+uint32_t max_lifetime;
+/* the lowest port available for mapping */
+uint16_t port_range_low;
+/* the highest port available for mapping */
+uint16_t port_range_high;
+/* an offset added to ports lower than the allowed range */
+uint16_t port_low_offset;
 
 /* cache for the public ip address */
 struct in_addr public_address;
@@ -153,9 +152,9 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 	if (answer_packet.mapping.lifetime) {
 		/* creating a mapping is requested */
 
-		if (ntohl(answer_packet.mapping.lifetime) > MAX_LIFETIME) {
+		if (ntohl(answer_packet.mapping.lifetime) > max_lifetime) {
 			/* lifetime too high, downgrade */
-			answer_packet.mapping.lifetime = htonl(MAX_LIFETIME);
+			answer_packet.mapping.lifetime = htonl(max_lifetime);
 		}
 
 		lease * a = get_lease_by_client_port(client, answer_packet.mapping.private_port);
@@ -180,17 +179,21 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 			else {
 				/* no lease and no manual mapping exist, find a valid port and create a lease */
 
-				/* assure the port is in the allowed range */
-				if (ntohs(answer_packet.mapping.public_port) < PORT_RANGE_LOW)
-					answer_packet.mapping.public_port = htons(ntohs(answer_packet.mapping.public_port) + PORT_LOW_OFFSET);
-				if (ntohs(answer_packet.mapping.public_port) > PORT_RANGE_HIGH)
+				/* assure the port is not under the allowed range */
+				if (ntohs(answer_packet.mapping.public_port) < port_range_low)
+					answer_packet.mapping.public_port = htons(ntohs(answer_packet.mapping.public_port) + port_low_offset);
+				/* catch overflows */
+				if (ntohs(answer_packet.mapping.public_port) < port_range_low)
+					answer_packet.mapping.public_port = htons(port_range_low);
+				/* assure the port is not over the allowed range */
+				if (ntohs(answer_packet.mapping.public_port) > port_range_high)
 					answer_packet.mapping.public_port = htons(ntohs(answer_packet.mapping.public_port) %
-							(PORT_RANGE_HIGH - PORT_RANGE_LOW + 1) + PORT_RANGE_LOW);
+							(port_range_high - port_range_low + 1) + port_range_low);
 
 				/* find a free port */
 				uint16_t try_count = 0;
 				while (1) {
-					if (try_count++ > PORT_RANGE_HIGH - PORT_RANGE_LOW) {
+					if (try_count++ > port_range_high - port_range_low) {
 						/* all ports checked, no free port found, restore variables and answer with out of resources */
 						answer_packet.mapping.public_port = request_packet->mapping.public_port;
 						answer_packet.mapping.lifetime = request_packet->mapping.lifetime;
@@ -228,8 +231,8 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 						break;
 					}
 
-					if (ntohs(answer_packet.mapping.public_port) >= PORT_RANGE_HIGH) {
-						answer_packet.mapping.public_port = htons(PORT_RANGE_LOW);
+					if (ntohs(answer_packet.mapping.public_port) >= port_range_high) {
+						answer_packet.mapping.public_port = htons(port_range_low);
 					}
 					else {
 						answer_packet.mapping.public_port = htons(ntohs(answer_packet.mapping.public_port) + 1);
@@ -399,7 +402,12 @@ void print_usage(const char * program_name) {
 void init(int argc, char * argv[]) {
 	int do_fork = 0;
 
-#define OPTSTRING "bi:a:"
+	/* set defaults */
+	max_lifetime = 3600;
+	port_range_low = 1024; /* ports below 1024 are restricted ports */
+	port_range_high = 65535; /* 65535 is the highest port available */
+
+#define OPTSTRING "bi:a:t:l:u:"
 	/* parse the command line */
 	{
 		extern char *optarg;
@@ -425,33 +433,59 @@ void init(int argc, char * argv[]) {
 		opterr = -1;
 		memset(public_ifname, 0, sizeof(public_ifname));
 		while ( (opt = getopt(argc, argv, OPTSTRING)) != -1 ) {
+			/* check for nullstrings in the arguments */
 			switch (opt) {
-				case 'b':
+				case 'i':
+				case 'a':
+				case 't':
+					if (optarg[0] == '\0') {
+						fprintf(stderr, "%s: argument %i is a bit too short.\n", argv[0], optind - 1);
+						print_usage(argv[0]);
+					}
+			}
+
+			/* handle the options */
+			switch (opt) {
+				case 'b': /* fork to background */
 					do_fork = -1;
 					break;
-				case 'i':
-					if (public_ifname[0]) {
-						fprintf(stderr, "%s: option allowed only once -- i\n", argv[0]);
-						print_usage(argv[0]);
-					}
-					if (optarg[0] == 0) {
-						fprintf(stderr, "%s: argument %i is a bit too short for a valid interface name.\n", argv[0], optind - 1);
-						print_usage(argv[0]);
-					}
+				case 'i': /* public interface name */
 					if (strlen(optarg) >= IFNAMSIZ) {
 						fprintf(stderr, "%s: argument %i is too long for a valid interface name.\n", argv[0], optind - 1);
 						print_usage(argv[0]);
 					}
 					strncpy(public_ifname, optarg, IFNAMSIZ);
 					break;
-				case 'a':
+				case 'a': /* address to listen on */
 					if (inet_aton(optarg, &laddresses[i]) == 0) {
 						fprintf(stderr, "%s: argument %i is not a valid ip address.\n", argv[0], optind - 1);
 						print_usage(argv[0]);
 					}
 					i++;
 					break;
-				default:
+				case 't': /* maximal lifetime */
+					max_lifetime = atol(optarg);
+					if (max_lifetime == 0) {
+						fprintf(stderr, "%s: argument %i is not a valid lifetime.\n", argv[0], optind - 1);
+						print_usage(argv[0]);
+					}
+					break;
+				case 'l': /* lowest port number allowed */
+					port_range_low = atoi(optarg);
+					if (port_range_low == 0) {
+						fprintf(stderr, "%s: argument %i is not a valid port number.\n", argv[0], optind - 1);
+						print_usage(argv[0]);
+					}
+					break;
+				case 'u': /* highest port number allowed */
+					port_range_high = atoi(optarg);
+					if (port_range_high == 0) {
+						fprintf(stderr, "%s: argument %i is not a valid port number.\n", argv[0], optind - 1);
+						print_usage(argv[0]);
+					}
+					break;
+				default: /* invalid option */
+					fprintf(stderr, "%s: argument %i is invalid.\n", argv[0], optind - 1);
 					print_usage(argv[0]);
 			}
 		}
@@ -465,6 +499,18 @@ void init(int argc, char * argv[]) {
 			fprintf(stderr, "%s: option required -- a\n", argv[0]);
 			print_usage(argv[0]);
 		}
+
+		/* port_range_low <= port_range_high; else bahaviour is undefined
+		 * port_range_high <= 65535; else range not guaranteed; given through 16 bit integer */
+		if (port_range_high < port_range_low) {
+			fprintf(stderr, "%s: lower port may not be smaller than upper port. \n", argv[0]);
+			print_usage(argv[0]);
+		}
+
+		/* port_low_offset >= port_range_low; else range not guaranteed */
+		port_low_offset = (port_range_low / 1000 + 1) * 1000;
+		/* catch overflows */
+		if (port_low_offset < port_range_low) port_low_offset = port_range_low;
 
 		public_address = get_ip_address(public_ifname);
 		printf("IP address of %s: %s\n", public_ifname, inet_ntoa(public_address));
@@ -480,7 +526,7 @@ void init(int argc, char * argv[]) {
 		}
 
 		free(laddresses);
-		
+
 		/* TODO: forward the rest of the options to the backend implementations */
 	}
 

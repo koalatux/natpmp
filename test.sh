@@ -19,9 +19,10 @@
 #
 
 
-TESTHOST=192.168.2.1
-SOURCE_1=192.168.2.123
-SOURCE_2=192.168.2.16
+TARGET_1=192.168.2.1
+TARGET_2=192.168.3.1
+SOURCE_1=192.168.2.16
+SOURCE_2=192.168.3.16
 ERROR=0
 
 function fatal_0 () {
@@ -52,7 +53,7 @@ expected_size=$2
 expected_opcode=$3
 expected_resultcode=$4
 
-answer=$(echo -ne "$(echo -n "$request_packet" | sed -e 's/../\\x&/g')" | nc -unq1 -s $SOURCE_ADDRESS $TESTHOST 5351 | od -t x1 | cut -c 9- | sed -e ':a;$bb;N;ba;:b;s/[\n ]//g')
+answer=$(echo -ne "$(echo -n "$request_packet" | sed -e 's/../\\x&/g')" | nc -unq1 -s $SOURCE_ADDRESS $TARGET_ADDRESS 5351 | od -t x1 | cut -c 9- | sed -e ':a;$bb;N;ba;:b;s/[\n ]//g')
 
 size=$(($(echo -n "$answer" | wc -c) / 2))
 [ $size -eq 0 ] && fatal_0 "No answer received from $TESTHOST."
@@ -95,6 +96,7 @@ info_1 "Mapping lifetime: $lifetime"
 
 ## start testing ##
 
+TARGET_ADDRESS=$TARGET_1
 SOURCE_ADDRESS=$SOURCE_1
 
 # invalid packets tests #
@@ -131,6 +133,7 @@ old_public_port=$public_port
 
 # lease stealing tests #
 
+TARGET_ADDRESS=$TARGET_2
 SOURCE_ADDRESS=$SOURCE_2
 
 info_0 "Trying to steal existing mapping."
@@ -141,6 +144,7 @@ info_0 "Trying to steal companion port of existing mapping."
 request_mapping 2 2700 $old_public_port 3600
 [ $public_port -eq $old_public_port ] && error_1 "The companion port was not reserved."
 
+TARGET_ADDRESS=$TARGET_1
 SOURCE_ADDRESS=$SOURCE_1
 
 # lease renewing tests #
