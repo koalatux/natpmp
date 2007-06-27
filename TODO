@@ -1,8 +1,11 @@
+* Write a manpage.
 * Do some more testing.
-* Make things configurable on the command line.
-* Do a release.
+* ----Do a release.----
 * Implement some logging.
 * Watch dhcp leases by polling the dhcp server's leases file.
 * Watch dhcp leases by some sort of IPC with the dhcp server.
 * Watch public ip address changes by IPC with the dhcp client.
 * Implement some kind of a relay for multilayer NAT.
+* Mapped ports are bindable by local applications, optionally bind to
+  mapped ports to prevent this. The benefit from this would be, that
+  these applications always get a reachable port.

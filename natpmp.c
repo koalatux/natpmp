@@ -135,6 +135,32 @@ void send_natpmp_packet(const int ufd, const struct sockaddr_in * t_addr, natpmp
 	udp_send_r(ufd, t_addr, packet, size);
 }
 
+/* check if something is listening on a given port, return 0 if port is free and -1 if not */
+int is_port_free(const uint16_t port) {
+	/* TODO: find a nicer alternative than trying to bind the ports (perhaps have a look at netstat) */
+
+	/* creating the listen address */
+	struct sockaddr_in s_addr;
+	memset(&s_addr, 0, sizeof(s_addr));
+	s_addr.sin_family = AF_INET;
+	s_addr.sin_port = port;
+	s_addr.sin_addr.s_addr = 0; /* all addresses */
+
+	int try_bind(int type) {
+		/* create socket */
+		int fd = socket(PF_INET, type, 0);
+		if (fd == -1) p_die("socket");
+		/* bind to it */
+		int err = bind(fd, (struct sockaddr *) &s_addr, sizeof(s_addr));
+		close(fd);
+		return err;
+	}
+
+	if (try_bind(SOCK_STREAM) == -1) return -1;
+	if (try_bind(SOCK_DGRAM) == -1) return -1;
+	return 0;
+}
+
 /* create or remove mappings */
 void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const natpmp_packet_map_request * request_packet) {
 	char protocol = (char) request_packet->header.op;
@@ -201,10 +227,10 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 						break;
 					}
 					if (get_lease_by_port(answer_packet.mapping.public_port) == NULL &&
+							is_port_free(answer_packet.mapping.public_port) == 0 &&
 							get_dnat_rule_by_mapped_port(TCP, answer_packet.mapping.public_port, NULL, NULL) == 0 &&
 							get_dnat_rule_by_mapped_port(UDP, answer_packet.mapping.public_port, NULL, NULL) == 0) {
 						/* TODO: acquiring the companion port to a manual mapping can be allowed to the same client */
-						/* TODO: check that no process is listening on the port */
 						/* these parameters are valid for mapping */
 
 						/* add the lease to the database */
@@ -511,6 +537,8 @@ void init(int argc, char * argv[]) {
 		port_low_offset = (port_range_low / 1000 + 1) * 1000;
 		/* catch overflows */
 		if (port_low_offset < port_range_low) port_low_offset = port_range_low;
+
+		printf("Allowed port range: %d..%d, maximal lifetime: %d\n", port_range_low, port_range_high, max_lifetime);
 
 		public_address = get_ip_address(public_ifname);
 		printf("IP address of %s: %s\n", public_ifname, inet_ntoa(public_address));

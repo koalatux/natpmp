@@ -56,7 +56,7 @@ expected_resultcode=$4
 answer=$(echo -ne "$(echo -n "$request_packet" | sed -e 's/../\\x&/g')" | nc -unq1 -s $SOURCE_ADDRESS $TARGET_ADDRESS 5351 | od -t x1 | cut -c 9- | sed -e ':a;$bb;N;ba;:b;s/[\n ]//g')
 
 size=$(($(echo -n "$answer" | wc -c) / 2))
-[ $size -eq 0 ] && fatal_0 "No answer received from $TESTHOST."
+[ $size -eq 0 ] && fatal_0 "No answer received from $TARGET_ADDRESS."
 if [ $size -ne $expected_size ] ; then
 	error_1 "Answer packet has wrong size."
 	return
