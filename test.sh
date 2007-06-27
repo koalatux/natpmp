@@ -53,14 +53,14 @@ expected_size=$2
 expected_opcode=$3
 expected_resultcode=$4
 
+# TODO: find a better solution than just waiting one second for answer
 answer=$(echo -ne "$(echo -n "$request_packet" | sed -e 's/../\\x&/g')" | nc -unq1 -s $SOURCE_ADDRESS $TARGET_ADDRESS 5351 | od -t x1 | cut -c 9- | sed -e ':a;$bb;N;ba;:b;s/[\n ]//g')
 
 size=$(($(echo -n "$answer" | wc -c) / 2))
 [ $size -eq 0 ] && fatal_0 "No answer received from $TARGET_ADDRESS."
 if [ $size -ne $expected_size ] ; then
 	error_1 "Answer packet has wrong size."
-	return
-	#TODO really jump to next test.
+	return 1
 fi
 
 version=$((0x$(echo -n "$answer" | cut -c 1-2)))
@@ -74,6 +74,8 @@ resultcode=$((0x$(echo -n "$answer" | cut -c 5-8)))
 
 epoch=$((0x$(echo -n "$answer" | cut -c 9-16)))
 info_1 "Seconds since start of epoch: $epoch"
+
+return 0
 }
 
 function request_mapping () {
@@ -82,7 +84,8 @@ r_private_port=$2
 r_public_port=$3
 r_lifetime=$4
 
-request "$(printf "00%02x0000%04x%04x%08x" $r_protocol $r_private_port $r_public_port $r_lifetime)" 16 $((128 + $r_protocol)) 0
+request "$(printf "00%02x0000%04x%04x%08x" $r_protocol $r_private_port $r_public_port $r_lifetime)" 16 $((128 + $r_protocol)) 0 \
+|| return 1
 
 private_port=$((0x$(echo -n "$answer" | cut -c 17-20)))
 [ $private_port != $r_private_port ] && error_1 "Ansewr packet has wrong private port."
@@ -92,6 +95,10 @@ info_1 "Assigned public port: $public_port"
 
 lifetime=$((0x$(echo -n "$answer" | cut -c 25-32)))
 info_1 "Mapping lifetime: $lifetime"
+[ $lifetime -gt $r_lifetime ] && error_1 "Lifetime has been raised."
+[ $lifetime -ne $r_lifetime -a $lifetime -lt 3600 ] && warn_1 "Lifetime lower than recommended value."
+
+return 0
 }
 
 ## start testing ##
@@ -104,31 +111,38 @@ SOURCE_ADDRESS=$SOURCE_1
 info_0 "Trying with unsupported version."
 request "1702" 8 $((128 + 0x02)) 1
 
+epoch_start=$epoch
+date_start=$(date +%s)
+
 info_0 "Trying with unsupported op code."
 request "0017" 8 $((128 + 0x17)) 5
 
 # public ip address test #
 
 info_0 "Trying public IP address request."
-request "0000" 12 128 0
-public_ipaddress=$(eval echo "$(echo -n "$answer" | cut -c 17-32 | sed -e 's/../$((0x&))./g;s/.$//')")
-info_1 "Public IP address: $public_ipaddress"
+if request "0000" 12 128 0; then
+	public_ipaddress=$(eval echo "$(echo -n "$answer" | cut -c 17-32 | sed -e 's/../$((0x&))./g;s/.$//')")
+	info_1 "Public IP address: $public_ipaddress"
+fi
 
 # port range and lifetime limit tests #
 # Remember: these limitations are not part of the draft, so only for testing my additions
 
-info_0 "Trying port number under allowed range."
-request_mapping 1 80 90 3600
-[ $public_port -lt 1024 ] && warn_1 "Port under allowed range assigned."
+info_0 "Trying a low port number."
+request_mapping 1 80 90 3600 && \
+[ $public_port -lt 1024 ] && warn_1 "Port with a low number assigned."
 
-info_0 "Trying port number over allowed range."
-request_mapping 2 60600 60660 3600
-[ $public_port -gt 60000 ] && warn_1 "Port over allowed range assigned."
+info_0 "Trying a high port number."
+request_mapping 2 65535 65500 3600 && \
+[ $public_port -ge 65500 ] && warn_1 "Port with a high number assigned."
 
-info_0 "Trying too long lifetime."
-request_mapping 1 2000 2000 36000
-[ $lifetime -gt 7200 ] && warn_1 "Too long lifetime allowed."
+info_0 "Trying a very short lifetime."
+request_mapping 1 2001 2001 1 && \
+[ $lifetime -lt 1 ] && warn_1 "Very short lifetime not granted, altough it is foolish."
 
+info_0 "Trying a long lifetime."
+request_mapping 1 2000 2000 604800 && \
+[ $lifetime -ge 604800 ] && warn_1 "Long lifetime granted."
 old_public_port=$public_port
 
 # lease stealing tests #
@@ -137,12 +151,22 @@ TARGET_ADDRESS=$TARGET_2
 SOURCE_ADDRESS=$SOURCE_2
 
 info_0 "Trying to steal existing mapping."
-request_mapping 1 2600 $old_public_port 3600
+request_mapping 1 2600 $old_public_port 3600 && \
 [ $public_port -eq $old_public_port ] && error_1 "The port was not reserved."
 
 info_0 "Trying to steal companion port of existing mapping."
-request_mapping 2 2700 $old_public_port 3600
+request_mapping 2 2700 $old_public_port 3600 && \
 [ $public_port -eq $old_public_port ] && error_1 "The companion port was not reserved."
+
+# Remember: in the draft nothing is mentioned about assigning a port which belongs to a local process. But assigning the natpmp's port itself should never be granted
+
+info_0 "Trying a port of a listening process on the router."
+request_mapping 1 5351 5351 3600 && \
+[ $public_port -eq 5351 ] && error_1 "Port of a listening process assigned."
+
+info_0 "Trying a companion port of a listening process on the router."
+request_mapping 2 5351 5351 3600 && \
+[ $public_port -eq 5351 ] && warn_1 "Companion port of a listening process assigned."
 
 TARGET_ADDRESS=$TARGET_1
 SOURCE_ADDRESS=$SOURCE_1
@@ -151,11 +175,11 @@ SOURCE_ADDRESS=$SOURCE_1
 
 # Remember: This is a limitation in my implementation; you can only acquire companion ports to the same private port.
 info_0 "Trying to get the companion port to a previous mapping."
-request_mapping 2 2000 $old_public_port 3600
+request_mapping 2 2000 $old_public_port 3600 && \
 [ $public_port -ne $old_public_port ] && error_1 "Could not get the companion port."
 
 info_0 "Trying existing mapping with different public port."
-request_mapping 2 2000 2200 3600
+request_mapping 2 2000 2200 3600 && \
 [ $public_port -ne $old_public_port ] && error_1 "Didn't get the already mapped public port."
 
 # lease renewing and expiring tests #
@@ -170,5 +194,9 @@ request_mapping 2 2000 2200 3600
 # TODO: single deletion
 # TODO: repeated deletion
 # TODO: all deletion
+
+info_0 "Checking if epoch has been sent correct."
+time_diff=$(( ($epoch - $epoch_start) - ($(date +%s) - $date_start) ))
+[ $time_diff -gt 1 -o $time_diff -lt -1 ] && error_1 "Epoch is not accurate."
 
 exit $ERROR

@@ -23,7 +23,7 @@ PUBLIC_IF=eth0
 PRIVATE_IFS="eth1 eth2 eth3 eth4 eth5"
 IPTABLES_CHAIN=natpmp
 
-if [ $UID -eq 0 ] ; then
+if [ "${USER:-$LOGNAME}" = "root" ] ; then
 	# Flush all the rules in the natpmp chain, or create it, if it doesn't exists.
 	/sbin/iptables -t nat -F $IPTABLES_CHAIN 2>/dev/null || \
 	/sbin/iptables -t nat -N $IPTABLES_CHAIN
@@ -44,7 +44,7 @@ for IF in $PRIVATE_IFS; do
 	if [ -n "$ADDR" ] ; then
 		# Add the IP address to the argument list.
 		BIND_ARGS="$BIND_ARGS -a $ADDR"
-		if [ $UID -eq 0 ] ; then
+		if [ "${USER:-$LOGNAME}" = "root" ] ; then
 			# Add the multicast route for this interface if it doesn't exist already.
 			/sbin/ip route | grep "^224\.0\.0\.0/4 dev $IF" > /dev/null || /sbin/ip route add 224.0.0.0/4 dev $IF
 		fi

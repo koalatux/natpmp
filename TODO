@@ -1,6 +1,7 @@
 * Write a manpage.
 * Do some more testing.
 * ----Do a release.----
+* Introduce a verbose and a quiet mode.
 * Implement some logging.
 * Watch dhcp leases by polling the dhcp server's leases file.
 * Watch dhcp leases by some sort of IPC with the dhcp server.

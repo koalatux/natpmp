@@ -429,7 +429,7 @@ void init(int argc, char * argv[]) {
 	int do_fork = 0;
 
 	/* set defaults */
-	max_lifetime = 3600;
+	max_lifetime = NATPMP_RECOMMENDED_LIFETIME;
 	port_range_low = 1024; /* ports below 1024 are restricted ports */
 	port_range_high = 65535; /* 65535 is the highest port available */
 
@@ -539,6 +539,8 @@ void init(int argc, char * argv[]) {
 		if (port_low_offset < port_range_low) port_low_offset = port_range_low;
 
 		printf("Allowed port range: %d..%d, maximal lifetime: %d\n", port_range_low, port_range_high, max_lifetime);
+		if (max_lifetime < NATPMP_RECOMMENDED_LIFETIME)
+			printf("Warning: using maximal lifetime lower than recommended value %d\n", NATPMP_RECOMMENDED_LIFETIME);
 
 		public_address = get_ip_address(public_ifname);
 		printf("IP address of %s: %s\n", public_ifname, inet_ntoa(public_address));
@@ -626,8 +628,7 @@ int main(int argc, char * argv[]) {
 			struct in_addr address = get_ip_address(public_ifname);
 			if (address.s_addr != public_address.s_addr) {
 				public_address = address;
-				/* XXX */
-				fprintf(stderr, "ip address of %s: %s\n", public_ifname, inet_ntoa(public_address));
+				printf("IP address of %s: %s\n", public_ifname, inet_ntoa(public_address));
 				next_announce_send = unow;
 				announce_count = 0;
 			}
