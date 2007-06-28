@@ -54,13 +54,15 @@ expected_opcode=$3
 expected_resultcode=$4
 
 # TODO: find a better solution than just waiting one second for answer
-answer=$(echo -ne "$(echo -n "$request_packet" | sed -e 's/../\\x&/g')" | nc -unq1 -s $SOURCE_ADDRESS $TARGET_ADDRESS 5351 | od -t x1 | cut -c 9- | sed -e ':a;$bb;N;ba;:b;s/[\n ]//g')
+answer=$(echo -ne "$(echo -n "$request_packet" | sed -e 's/../\\x&/g')" | nc -unw1 -s $SOURCE_ADDRESS $TARGET_ADDRESS 5351 | od -t x1 | cut -c 9- | sed -e ':a' -e '$bb' -e 'N' -e 'ba' -e ':b' -e 's/[\n ]//g')
 
 size=$(($(echo -n "$answer" | wc -c) / 2))
 [ $size -eq 0 ] && fatal_0 "No answer received from $TARGET_ADDRESS."
-if [ $size -ne $expected_size ] ; then
+if [ $size -lt $expected_size ] ; then
 	error_1 "Answer packet has wrong size."
 	return 1
+elif [ $size -gt $expected_size ] ; then
+	warn_1 "Answer packet has trailed chunks."
 fi
 
 version=$((0x$(echo -n "$answer" | cut -c 1-2)))
@@ -108,6 +110,8 @@ SOURCE_ADDRESS=$SOURCE_1
 
 # invalid packets tests #
 
+# the opcode is not specified (airport sends 0)
+#TODO: don't throw an error on unmatched opcode
 info_0 "Trying with unsupported version."
 request "1702" 8 $((128 + 0x02)) 1
 
@@ -121,7 +125,7 @@ request "0017" 8 $((128 + 0x17)) 5
 
 info_0 "Trying public IP address request."
 if request "0000" 12 128 0; then
-	public_ipaddress=$(eval echo "$(echo -n "$answer" | cut -c 17-32 | sed -e 's/../$((0x&))./g;s/.$//')")
+	public_ipaddress=$(eval echo "$(echo -n "$answer" | cut -c 17-24 | sed -e 's/../$((0x&))./g;s/.$//')")
 	info_1 "Public IP address: $public_ipaddress"
 fi
 
@@ -151,11 +155,11 @@ TARGET_ADDRESS=$TARGET_2
 SOURCE_ADDRESS=$SOURCE_2
 
 info_0 "Trying to steal existing mapping."
-request_mapping 1 2600 $old_public_port 3600 && \
+request_mapping 1 2000 $old_public_port 3600 && \
 [ $public_port -eq $old_public_port ] && error_1 "The port was not reserved."
 
 info_0 "Trying to steal companion port of existing mapping."
-request_mapping 2 2700 $old_public_port 3600 && \
+request_mapping 2 2000 $old_public_port 3600 && \
 [ $public_port -eq $old_public_port ] && error_1 "The companion port was not reserved."
 
 # Remember: in the draft nothing is mentioned about assigning a port which belongs to a local process. But assigning the natpmp's port itself should never be granted

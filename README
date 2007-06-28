@@ -15,10 +15,8 @@ The main author of this program is
 
 Supported Platforms
 -------------------
-By now, nothing is supported at all, because it's still in development :-).
-
-Linux support with iptables system calls will be available very soon. A
-nicer interface to the kernel is not planned because there's no stable
+Linux support is done with iptables system calls. 
+A nicer interface to the kernel is not planned because there's no stable
 API to use. If you really want to struggle with libiptc, you are welcome.
 
 Other OSes support would not be a big deal. Write me, if you're planning to

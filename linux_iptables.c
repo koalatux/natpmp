@@ -40,58 +40,42 @@
  * only do this, if the underlying system provides such information.
  */
 
-const char* proto(const char protocol)
-{
-  if(protocol == UDP)
-    return "udp";
-  if(protocol == TCP)
-      return "tcp";
-  die("proto: invalid protocol");
+const char * proto(const char protocol) {
+	if(protocol == UDP) return "udp";
+	if(protocol == TCP) return "tcp";
+	die("proto: invalid protocol");
 }
-  
-  
+
+/* function that gets wrapped by create_dnat_rule() and destroy_dnat_rule() */
+int change_dnat_rule(const char c_arg, const char protocol, const uint16_t mapped_port, const uint32_t client, const uint16_t private_port) {
+	char command[256];
+	struct in_addr client_addr;
+	client_addr.s_addr = client;
+
+	snprintf(command, sizeof(command),
+			"iptables -t nat -%c natpmp -p %s --dport %d -j DNAT --to-destination %s:%d",
+			c_arg, proto(protocol),ntohs(mapped_port), inet_ntoa(client_addr), ntohs(private_port));
+
+	if(system(command)) return -1;
+	return 0;
+}
+
 /* search DNAT rule for given mapped port, return 1 if found, 0 if not found and -1 on error, set client and private_port if not NULL */
-int get_dnat_rule_by_mapped_port(const char protocol, const uint16_t mapped_port, uint32_t * client, uint16_t * private_port)
-{
-  return -1;
+int get_dnat_rule_by_mapped_port(const char protocol __attribute__ ((unused)), const uint16_t mapped_port __attribute__ ((unused)), uint32_t * client __attribute__ ((unused)), uint16_t * private_port __attribute__ ((unused))) {
+	return 0;
 }
 
 /* search DNAT rule for given private port and client, return 1 if found, 0 if not found and -1 on error, set mapped_port if not NULL */
-int get_dnat_rule_by_client_port(const char protocol, uint16_t * mapped_port, const uint32_t client, const uint16_t private_port)
-{
-  return -1;
+int get_dnat_rule_by_client_port(const char protocol __attribute__ ((unused)), uint16_t * mapped_port __attribute__ ((unused)), const uint32_t client __attribute__ ((unused)), const uint16_t private_port __attribute__ ((unused))) {
+	return 0;
 }
 
 /* create a DNAT rule with given mapped port, client ip address and private port, return 0 on success and -1 on failure */
-int create_dnat_rule(const char protocol, const uint16_t mapped_port, const uint32_t client, const uint16_t private_port)
-{
-  static char command[255];
-  struct in_addr client_addr;
-  client_addr.s_addr=client;
-
-  snprintf(command,sizeof(command),
-    "echo iptables -t nat -A natpmp -p %s --dport %d -j DNAT"
-    " --to-destination %s:%d",
-    proto(protocol),ntohs(mapped_port),
-    inet_ntoa(client_addr), ntohs(private_port));
-
-  if(system(command)) return -1;
-  return 0;  
+int create_dnat_rule(const char protocol, const uint16_t mapped_port, const uint32_t client, const uint16_t private_port) {
+	return change_dnat_rule('A', protocol, mapped_port, client, private_port);
 }
 
 /* destroy a DNAT rule with given mapped port, client ip address and private port, return 0 on success, 1 when forbidden and -1 on failure */
-int destroy_dnat_rule(const char protocol, const uint16_t mapped_port, const uint32_t client, const uint16_t private_port)
-{
-  static char command[255];
-  struct in_addr client_addr;
-  client_addr.s_addr=client;
-
-  snprintf(command,sizeof(command),
-    "echo iptables -t nat -D natpmp -p %s --dport %d -j DNAT"
-    " --to-destination %s:%d",
-    proto(protocol),ntohs(mapped_port),
-    inet_ntoa(client_addr), ntohs(private_port));
-
-  if(system(command)) return -1;
-  return 0;
+int destroy_dnat_rule(const char protocol, const uint16_t mapped_port, const uint32_t client, const uint16_t private_port) {
+	return change_dnat_rule('D', protocol, mapped_port, client, private_port);
 }

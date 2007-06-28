@@ -391,6 +391,8 @@ void read_from_socket(const int s_i) {
 	/* check for wrong or unsupported packets */
 	if (pkgsize < (ssize_t) sizeof(natpmp_packet_dummy_request)) return; /* TODO: errorlog */
 	if (packet_request.dummy.header.version != NATPMP_VERSION) {
+		/* Apple's Airport stations send an opcode of 0 here, but it's not defined in the draft,
+		 * perhaps this could be used for fingerprinting my implementation :-) */
 		handle_unsupported_request(ufd_v[s_i].fd, &t_addr, &packet_request.dummy, NATPMP_UNSUPPORTEDVERSION);
 		return;
 	}
