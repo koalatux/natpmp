@@ -29,6 +29,9 @@
 #include "dnat_api.h"
 #include "die.h"
 
+#define CHAIN_NAME_MAXSIZE 30
+#define DEFAULT_CHAIN_NAME "natpmp"
+
 /*
  * IP addresses and port numbers all are in network byte order!
  * create_dnat_rule() and destroy_dnat_rule() must succeed if rule was already
@@ -39,6 +42,20 @@
  * created by itself, e.g. if the rule is in chain not used by the program. But
  * only do this, if the underlying system provides such information.
  */
+
+char chain_name[32] = DEFAULT_CHAIN_NAME;
+
+void dnat_init(int argc, char * argv[]) {
+	if (argc > 1) die("Give only name of iptables chain as backend option.");
+	if (argc == 0) {
+		printf("Using name of iptables chain default: \"" DEFAULT_CHAIN_NAME "\"\n");
+		return;
+	}
+	if (*argv[0] == '\0') die("Backend option is a very little bit too short.");
+	if (strlen(argv[0]) > CHAIN_NAME_MAXSIZE) die("Backend option is too long.");
+	strncpy(chain_name, argv[0], sizeof(chain_name));
+	printf("Using name of iptables chain: \"%s\"\n", chain_name);
+}
 
 const char * proto(const char protocol) {
 	if(protocol == UDP) return "udp";
@@ -53,8 +70,8 @@ int change_dnat_rule(const char c_arg, const char protocol, const uint16_t mappe
 	client_addr.s_addr = client;
 
 	snprintf(command, sizeof(command),
-			"iptables -t nat -%c natpmp -p %s --dport %d -j DNAT --to-destination %s:%d",
-			c_arg, proto(protocol),ntohs(mapped_port), inet_ntoa(client_addr), ntohs(private_port));
+			"iptables -t nat -%c %s -p %s --dport %d -j DNAT --to-destination %s:%d",
+			c_arg, chain_name, proto(protocol),ntohs(mapped_port), inet_ntoa(client_addr), ntohs(private_port));
 
 	if(system(command)) return -1;
 	return 0;

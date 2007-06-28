@@ -20,6 +20,7 @@
 
 PROJECT(natpmp)
 
+#ADD_EXECUTABLE(natpmp natpmp.c die.c leases.c dnat_dummy.c)
 ADD_EXECUTABLE(natpmp natpmp.c die.c leases.c linux_iptables.c)
 
 # Show me some errors

@@ -401,12 +401,12 @@ void read_from_socket(const int s_i) {
 	/* do things depending on the packet's op code */
 	switch (packet_request.dummy.header.op) {
 		case NATPMP_PUBLICIPADDRESS :
-			if (pkgsize != sizeof(natpmp_packet_publicipaddress_request)) return; /* TODO: errorlog */
+			if (pkgsize < (ssize_t) sizeof(natpmp_packet_publicipaddress_request)) return; /* TODO: errorlog */
 			send_publicipaddress(ufd_v[s_i].fd, &t_addr);
 			break;
 		case NATPMP_MAP_UDP :
 		case NATPMP_MAP_TCP :
-			if (pkgsize != sizeof(natpmp_packet_map_request)) return; /* TODO: errorlog */
+			if (pkgsize < (ssize_t) sizeof(natpmp_packet_map_request)) return; /* TODO: errorlog */
 			handle_map_request(ufd_v[s_i].fd, &t_addr, &packet_request.map);
 			break;
 		default :
@@ -558,8 +558,8 @@ void init(int argc, char * argv[]) {
 		}
 
 		free(laddresses);
-
-		/* TODO: forward the rest of the options to the backend implementations */
+		
+		dnat_init(argc - optind, &argv[optind]);
 	}
 
 	/* fork into background, must be called before registering atexit functions */

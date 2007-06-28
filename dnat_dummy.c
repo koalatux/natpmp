@@ -23,6 +23,15 @@
 
 #include "dnat_api.h"
 
+void dnat_init(int argc, char * argv[]) {
+	printf("dnat_init(%d, {", argc);
+	int i;
+	for (i=0; i<argc; i++) {
+		printf("\"%s\", ", argv[i]);
+	}
+	printf("\b\b})\n");
+}
+
 int get_dnat_rule_by_mapped_port(const char protocol, const uint16_t mapped_port, uint32_t * client, uint16_t * private_port) {
 	printf("get_dnat_rule_by_mapped_port(%hhd, %hu, *, *)\n", protocol, ntohs(mapped_port));
 	if (client != NULL) *client = 0;
