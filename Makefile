@@ -21,6 +21,7 @@
 
 TARGET = natpmp
 OBJECTS = natpmp.o die.o leases.o linux_iptables.o
+MANPAGES = natpmp.1
 DEPFILE = Makefile.depend
 CCFLAGS += -W -Wall
 
@@ -29,15 +30,20 @@ all: $(TARGET)
 clean:
 	rm -rf $(TARGET) $(OBJECTS) $(DEPFILE)
 
+man: $(MANPAGES)
+
 $(TARGET): $(OBJECTS)
 	$(CC) $(CCFLAGS) -o $@ $^
 
 %.o: %.c
 	$(CC) $(CCFLAGS) -c -o $@ $<
 
+%: %.xml
+	docbook2x-man $<
+
 $(DEPFILE): *.[ch]
 	$(CC) -MM $^ > $@
 
 -include $(DEPFILE)
 
-.PHONY: all install
+.PHONY: all install clean man

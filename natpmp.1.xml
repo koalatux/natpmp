@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.1.2//EN"
+"http://www.oasis-open.org/docbook/xml/4.1.2/docbookx.dtd">
+<refentry id="natpmp">
+
+	<refmeta>
+		<refentrytitle>natpmp</refentrytitle>
+		<manvolnum>1</manvolnum>
+	</refmeta>
+
+	<refnamediv>
+		<refname>natpmp</refname>
+		<refpurpose>Handles port forwarding requests from clients behind a NAT</refpurpose>
+	</refnamediv>
+
+	<refsynopsisdiv>
+		<cmdsynopsis>
+			<command>natpmp</command>
+			<arg choice="opt">-b</arg>
+			<arg choice="plain">-i <replaceable>public-interface</replaceable></arg>
+			<arg choice="plain" rep="repeat">-a <replaceable>private-address</replaceable></arg>
+			<arg choice="opt">-t <replaceable>max-lifetime</replaceable></arg>
+			<arg choice="opt">-l <replaceable>lower-port</replaceable></arg>
+			<arg choice="opt">-u <replaceable>upper-port</replaceable></arg>
+			<arg choice="opt"><arg choice="opt">--</arg> <replaceable>backend-options</replaceable></arg>
+		</cmdsynopsis>
+	</refsynopsisdiv>
+
+	<refsect1><title>Description</title>
+		<para>
+			This is an implementation of NAT-PMP written in C.
+		</para>
+		<variablelist>
+			<varlistentry>
+				<term><option>-b</option></term>
+				<listitem><para>fork into background</para></listitem>
+			</varlistentry>
+			<varlistentry>
+				<term><option>-i <replaceable>public-interface</replaceable></option></term>
+				<listitem><para>use <replaceable>public-interface</replaceable> for internet site</para></listitem>
+			</varlistentry>
+			<varlistentry>
+				<term><option>-a <replaceable>private-address</replaceable></option></term>
+				<listitem><para>use <replaceable>private-address</replaceable> for local site</para></listitem>
+			</varlistentry>
+			<varlistentry>
+				<term><option>-t <replaceable>max-lifetime</replaceable></option></term>
+				<listitem><para>maximal lifetime of a mapping</para></listitem>
+			</varlistentry>
+			<varlistentry>
+				<term><option>-l <replaceable>lowest-port</replaceable></option></term>
+				<listitem><para>lowest port available for mappings</para></listitem>
+			</varlistentry>
+			<varlistentry>
+				<term><option>-u <replaceable>upper-port</replaceable></option></term>
+				<listitem><para>highest port available for mappings</para></listitem>
+			</varlistentry>
+		</variablelist>
+	</refsect1>
+
+	<refsect1><title>Backends</title>
+		<para>
+			A backend is chosen at compile time.
+			At the moment only an iptables backend is available. But there surely will be more.
+		</para>
+		<refsect2><title>iptables</title>
+			<para>
+				This backend uses Linux' iptables to do the port forwardings.
+				It takes one option to specify the iptables chain to use. If not set it defaults to <parameter>natpmp</parameter>.
+			</para>
+		</refsect2>
+	</refsect1>
+
+	<refsect1><title>Author</title>
+		<para>Written by <author><firstname>Adrian</firstname><surname>Friedli</surname></author>.</para>
+	</refsect1>
+
+	<refsect1><title>Reporting Bugs</title>
+		<para>Report bugs to <email>adi@koalatux.ch</email>.</para>
+	</refsect1>
+
+	<refsect1><title>Copyright</title>
+		<para>Copyright &copy; 2007 Adrian Friedli.</para>
+		<para>
+			This is free software.
+			You may redistribute copies of it under the terms of the GNU General Public License <ulink url="http://www.gnu.org/licenses/gpl.html">http://www.gnu.org/licenses/gpl.html</ulink>.
+			There is NO WARRANTY, to the extent permitted by law.</para>
+	</refsect1>
+</refentry>
