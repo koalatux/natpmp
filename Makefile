@@ -27,6 +27,10 @@ CCFLAGS += -W -Wall
 
 all: $(TARGET)
 
+install:
+	mkdir -p $(DESTDIR)/usr/sbin
+	install -m 755 $(TARGET) $(DESTDIR)/usr/sbin
+
 clean:
 	rm -rf $(TARGET) $(OBJECTS) $(DEPFILE)
 

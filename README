@@ -1,16 +1,20 @@
 Introduction
 ------------
 This is an implementation of NAT-PMP written in C. NAT-PMP specifications
-are available at
-
+are available at:
   http://files.dns-sd.org/draft-cheshire-nat-pmp.txt
 
 
-Authors
--------
+Author
+------
 The main author of this program is
 
-  Adrian Friedli <adi at koalatux dot ch>
+  Adrian Friedli <adi@koalatux.ch>
+
+
+Bugs
+----
+Please report bugs to the author.
 
 
 Supported Platforms
@@ -40,3 +44,12 @@ Limitations
   mapping while the machine is rebooting.
 
 See the TODO file for things that might be implemented sometime.
+
+
+Installation
+------------
+You need gcc to compile. To build the binary just type `make'. If you
+downloaded from git and if you want the manpage type `make man', releases
+should have a prebuilt manpage. `make install' only installs the binary to
+/usr/sbin, install the init script and the manpage manually if you want
+them. The init script needs `ip' from iproute to run.
