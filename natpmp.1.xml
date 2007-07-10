@@ -41,7 +41,14 @@
 			</varlistentry>
 			<varlistentry>
 				<term><option>-a <replaceable>private-address</replaceable></option></term>
-				<listitem><para>use <replaceable>private-address</replaceable> for local site</para></listitem>
+				<listitem>
+					<para>use <replaceable>private-address</replaceable> for local site</para>
+					<para>
+						Don't use 0.0.0.0 here. Better set the ip addresses of each interface.
+						<command>natpmp</command> will exit with failure when the public ip address
+						changes	and the system can't find a route for sending the multicast announces.
+					</para>
+				</listitem>
 			</varlistentry>
 			<varlistentry>
 				<term><option>-t <replaceable>max-lifetime</replaceable></option></term>

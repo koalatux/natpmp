@@ -556,7 +556,7 @@ void init(int argc, char * argv[]) {
 
 		printf("Allowed port range: %d..%d, maximal lifetime: %d\n", port_range_low, port_range_high, max_lifetime);
 		if (max_lifetime < NATPMP_RECOMMENDED_LIFETIME)
-			printf("Warning: using maximal lifetime lower than recommended value %d\n", NATPMP_RECOMMENDED_LIFETIME);
+			fprintf(stderr, "Warning: using maximal lifetime lower than recommended value %d\n", NATPMP_RECOMMENDED_LIFETIME);
 
 		public_address = get_ip_address(public_ifname);
 		print_public_ip_address();
@@ -568,7 +568,8 @@ void init(int argc, char * argv[]) {
 			/* prepare data structures for poll */
 			ufd_v[i].events = POLLIN;
 
-			printf("Listening on %s\n", inet_ntoa(laddresses[i]));
+			if (laddresses[i].s_addr != 0) printf("Listening on %s\n", inet_ntoa(laddresses[i]));
+			else fprintf(stderr, "Warning: Listening on 0.0.0.0 is not a good idea\n");
 		}
 
 		free(laddresses);

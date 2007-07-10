@@ -48,10 +48,6 @@ for IF in $PRIVATE_IFS; do
 	if [ -n "$ADDR" ] ; then
 		# Add the IP address to the argument list.
 		BIND_ARGS="$BIND_ARGS -a $ADDR"
-		if [ "${USER:-$LOGNAME}" = "root" ] ; then
-			# Add the multicast route for this interface if it doesn't exist already.
-			$IP route | grep "^224\.0\.0\.0/4 dev $IF" > /dev/null || $IP route add 224.0.0.0/4 dev $IF
-		fi
 	else
 		echo "Could not get IP address of interface $IF. Skipping." >&2
 	fi
