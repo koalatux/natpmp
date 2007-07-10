@@ -117,14 +117,19 @@ struct in_addr get_ip_address(const char * ifname) {
 	/* len is already checked at command line parsing */
 	//if (strlen(ifname) >= IFNAMSIZ) die("get_ip_address: interface name too long");
 	strncpy(req.ifr_ifrn.ifrn_name, ifname, IFNAMSIZ);
-	{
-		int tfd = socket(PF_INET, SOCK_STREAM, 0);
-		int err = ioctl(tfd, SIOCGIFADDR, &req);
-		close(tfd);
-		if (err == -1) p_die("ioctl(SIOCGIFADDR)");
+	int tfd = socket(PF_INET, SOCK_STREAM, 0);
+	int err = ioctl(tfd, SIOCGIFADDR, &req);
+	close(tfd);
+	if (err == 0) {
+		struct sockaddr_in * req_addr = (struct sockaddr_in *) &req.ifr_ifru.ifru_addr;
+		return (struct in_addr) req_addr->sin_addr;
 	}
-	struct sockaddr_in * req_addr = (struct sockaddr_in *) &req.ifr_ifru.ifru_addr;
-	return (struct in_addr) req_addr->sin_addr;
+	else {
+		/* Return 0.0.0.0 on error */
+		struct in_addr sin_addr;
+		memset(&sin_addr, 0, sizeof(sin_addr));
+		return sin_addr;
+	}
 }
 
 /* send a NAT-PMP packet */
@@ -331,10 +336,10 @@ void handle_unsupported_request(const int ufd, const struct sockaddr_in * t_addr
 
 /* answer with public IP address */
 void send_publicipaddress(const int ufd, const struct sockaddr_in * t_addr) {
-	/* TODO: answer with Network Failure if no ip address found on the public port */
 	natpmp_packet_publicipaddress_answer packet;
 	packet.header.op = NATPMP_PUBLICIPADDRESS;
-	packet.answer.result = NATPMP_SUCCESS;
+	if (public_address.s_addr != 0) packet.answer.result = NATPMP_SUCCESS;
+	else packet.answer.result = NATPMP_NETFAILURE;
 	packet.public_ip_address = public_address.s_addr;
 	send_natpmp_packet(ufd, t_addr, (natpmp_packet_answer *) &packet, sizeof(packet));
 }
@@ -425,6 +430,15 @@ void update_time() {
 void print_usage(const char * program_name) {
 	fprintf(stderr, "Usage: %s [-b] -i interface -a address [-a address [...]] -- backend-options\n", program_name);
 	exit(EXIT_FAILURE);
+}
+
+void print_public_ip_address() {
+	if (public_address.s_addr != 0) {
+		printf("IP address of %s: %s\n", public_ifname, inet_ntoa(public_address));
+	}
+	else {
+		printf("IP address of %s: none\n", public_ifname);
+	}
 }
 
 void init(int argc, char * argv[]) {
@@ -545,7 +559,7 @@ void init(int argc, char * argv[]) {
 			printf("Warning: using maximal lifetime lower than recommended value %d\n", NATPMP_RECOMMENDED_LIFETIME);
 
 		public_address = get_ip_address(public_ifname);
-		printf("IP address of %s: %s\n", public_ifname, inet_ntoa(public_address));
+		print_public_ip_address();
 
 		/* initialize sockets */
 		for (i=0; i<ufd_c; i++) {
@@ -630,7 +644,7 @@ int main(int argc, char * argv[]) {
 			struct in_addr address = get_ip_address(public_ifname);
 			if (address.s_addr != public_address.s_addr) {
 				public_address = address;
-				printf("IP address of %s: %s\n", public_ifname, inet_ntoa(public_address));
+				print_public_ip_address();
 				next_announce_send = unow;
 				announce_count = 0;
 			}
@@ -651,15 +665,14 @@ int main(int argc, char * argv[]) {
 
 		/* announce the public ip address on change */
 		if (next_announce_send <= unow) {
-			/* TODO: dont send if public_ip_address is invalid */
-			{
+			if (public_address.s_addr != 0) {
 				int i;
 				for (i=0; i<ufd_c; i++) {
 					send_publicipaddress(ufd_v[i].fd, &multicast_address);
 				}
 			}
 
-			if (announce_count + 1 < NATPMP_ANNOUNCE_PACKETS) {
+			if (announce_count + 1 < NATPMP_ANNOUNCE_PACKETS && public_address.s_addr != 0) {
 				next_announce_send = unow + (1 << announce_count) * NATPMP_ADDRESS_ANNOUNCE_INTERVAL;
 				announce_count++;
 			}
