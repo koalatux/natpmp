@@ -1,21 +1,22 @@
+NAT Port Mapping daemon
+=======================
+
 Introduction
 ------------
-This is an implementation of NAT-PMP written in C. NAT-PMP specifications
-are available at:
-  http://files.dns-sd.org/draft-cheshire-nat-pmp.txt
+This is a daemon implementing NAT-PMP.
 
+NAT-PMP is a protocol for handling port forwarding requests from clients
+behind a NAT. NAT-PMP specifications are available at:
+  http://files.dns-sd.org/draft-cheshire-nat-pmp.txt
 
 Author
 ------
 The main author of this program is
-
   Adrian Friedli <adi@koalatux.ch>
-
 
 Bugs
 ----
 Please report bugs to the author.
-
 
 Supported Platforms
 -------------------
@@ -26,14 +27,12 @@ API to use. If you really want to struggle with libiptc, you are welcome.
 Other OSes support would not be a big deal. Write me, if you're planning to
 port some code. But you need GCC to compile this program.
 
-
 Features beyond the specifications
 ----------------------------------
 * Multiple private interfaces supported.
 * Configurable range for mapable ports.
 * Configurable limit for lifetime.
 * A little test suite written in bash.
-
 
 Limitations
 -----------
@@ -44,7 +43,6 @@ Limitations
   mapping while the machine is rebooting.
 
 See the TODO file for things that might be implemented sometime.
-
 
 Installation
 ------------

@@ -17,6 +17,7 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+#define PROGRAM_VERSION "0.1.0alpha2"
 
 #include <arpa/inet.h>
 //#include <sys/types.h>
@@ -432,6 +433,28 @@ void print_usage(const char * program_name) {
 	exit(EXIT_FAILURE);
 }
 
+void do_version() {
+	printf(
+			"natpmp version " PROGRAM_VERSION ".\n\n"
+
+			"Copyright (C) 2007  Adrian Friedli.\n\n"
+
+			"This program is free software; you can redistribute it and/or modify\n"
+			"it under the terms of the GNU General Public License as published by\n"
+			"the Free Software Foundation; either version 2 of the License, or\n"
+			"(at your option) any later version.\n\n"
+
+			"This program is distributed in the hope that it will be useful,\n"
+			"but WITHOUT ANY WARRANTY; without even the implied warranty of\n"
+			"MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n"
+			"GNU General Public License for more details.\n\n"
+
+			"You should have received a copy of the GNU General Public License along\n"
+			"with this program; if not, write to the Free Software Foundation, Inc.,\n"
+			"51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.\n"
+			);
+}
+
 void print_public_ip_address() {
 	if (public_address.s_addr != 0) {
 		printf("IP address of %s: %s\n", public_ifname, inet_ntoa(public_address));
@@ -449,7 +472,7 @@ void init(int argc, char * argv[]) {
 	port_range_low = 1024; /* ports below 1024 are restricted ports */
 	port_range_high = 65535; /* 65535 is the highest port available */
 
-#define OPTSTRING "bi:a:t:l:u:"
+#define OPTSTRING "Vbi:a:t:l:u:"
 	/* parse the command line */
 	{
 		extern char *optarg;
@@ -460,7 +483,15 @@ void init(int argc, char * argv[]) {
 		ufd_c = 0;
 		opterr = 0;
 		while ( (opt = getopt(argc, argv, OPTSTRING)) != -1 ) {
-			if (opt == 'a') ufd_c++;
+			switch (opt) {
+				case 'a':
+					ufd_c++;
+					break;
+				case 'V':
+					do_version();
+					exit(EXIT_SUCCESS);
+					break;
+			}
 		}
 
 		/* allocate memory for sockets */
@@ -484,6 +515,7 @@ void init(int argc, char * argv[]) {
 						fprintf(stderr, "%s: argument %i is a bit too short.\n", argv[0], optind - 1);
 						print_usage(argv[0]);
 					}
+					break;
 			}
 
 			/* handle the options */

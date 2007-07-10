@@ -24,6 +24,10 @@
 			<arg choice="opt">-u <replaceable>upper-port</replaceable></arg>
 			<arg choice="opt"><arg choice="opt">--</arg> <replaceable>backend-options</replaceable></arg>
 		</cmdsynopsis>
+		<cmdsynopsis>
+			<command>natpmp</command>
+			<arg choice="plain">-V</arg>
+		</cmdsynopsis>
 	</refsynopsisdiv>
 
 	<refsect1><title>Description</title>
@@ -61,6 +65,10 @@
 			<varlistentry>
 				<term><option>-u <replaceable>upper-port</replaceable></option></term>
 				<listitem><para>highest port available for mappings</para></listitem>
+			</varlistentry>
+			<varlistentry>
+				<term><option>-V</option></term>
+				<listitem><para>print version and license information</para></listitem>
 			</varlistentry>
 		</variablelist>
 	</refsect1>
