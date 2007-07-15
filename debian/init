@@ -1,0 +1,140 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          natpmp
+# Required-Start:    $local_fs $remote_fs $network
+# Required-Stop:     $local_fs $remote_fs $network
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: NAT Port Mapping daemon
+# Description:       A daemon implementing NAT-PMP. NAT-PMP is a protocol for
+#                    handling port forwarding requests from clients behind a
+#                    NAT.
+### END INIT INFO
+
+# Author: Adrian Friedli <adi@koalatux.ch>
+
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+DESC="NAT Port Mapping daemon"
+NAME=natpmp
+DAEMON=/usr/sbin/natpmp
+PIDFILE=/var/run/$NAME.pid
+SCRIPTNAME=/etc/init.d/$NAME
+DEFAULTSFILE=/etc/default/$NAME
+IP=ip
+IPTABLES=iptables
+IPTABLES_CHAIN=$NAME
+
+# Exit if the package is not installed
+[ -x $DAEMON ] || exit 0
+
+# Include defaults if available
+[ -r $DEFAULTSFILE ] && . $DEFAULTSFILE
+
+# Load the VERBOSE setting and other rcS variables
+. /lib/init/vars.sh
+
+# Define LSB log_* functions.
+. /lib/lsb/init-functions
+
+destroy_chains() {
+	$IPTABLES -t nat -D PREROUTING -j $IPTABLES_CHAIN 2>/dev/null || true
+	$IPTABLES -t nat -F $IPTABLES_CHAIN 2>/dev/null || true
+	$IPTABLES -t nat -X $IPTABLES_CHAIN 2>/dev/null || true
+}
+
+create_chains() {
+	destroy_chains
+	$IPTABLES -t nat -N $IPTABLES_CHAIN
+	$IPTABLES -t nat -A PREROUTING -j $IPTABLES_CHAIN
+}
+
+build_args() {
+	BIND_ARGS=
+	for IF in $PRIVATE_IFS; do
+		# Get the IP address of this interface.
+		ADDR=`$IP addr show dev $IF 2>/dev/null | grep "^ *inet .* $IF\$" | cut -d " " -f 6 | cut -d / -f 1`
+		if [ -n "$ADDR" ] ; then
+			# Add the IP address to the argument list.
+			BIND_ARGS="$BIND_ARGS -a $ADDR"
+		else
+			echo "Could not get IP address of interface $IF. Skipping." >&2
+		fi
+	done
+	DAEMON_OPTS="-b -p $PIDFILE -i $PUBLIC_IF $BIND_ARGS -- $IPTABLES_CHAIN"
+}
+
+do_start()
+{
+	# Return
+	#   0 if daemon has been started
+	#   1 if daemon was already running
+	#   2 if daemon could not be started
+	if [ "$ENABLED" != "1" ]; then
+		echo -n " (disabled in $DEFAULTSFILE)"
+		return 0
+	fi
+	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON --test > /dev/null \
+		|| return 1
+	create_chains
+	build_args
+	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON -- $DAEMON_OPTS > /dev/null \
+		|| return 2
+}
+
+do_stop()
+{
+	# Return
+	#   0 if daemon has been stopped
+	#   1 if daemon was already stopped
+	#   2 if daemon could not be stopped
+	#   other if a failure occurred
+	start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --pidfile $PIDFILE --name $NAME
+	RETVAL="$?"
+	[ "$RETVAL" = 2 ] && return 2
+	#start-stop-daemon --stop --quiet --oknodo --retry=0/30/KILL/5 --exec $DAEMON
+	#[ "$?" = 2 ] && return 2
+	destroy_chains
+	rm -f $PIDFILE
+	return "$RETVAL"
+}
+
+case "$1" in
+  start)
+	[ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC" "$NAME"
+	do_start
+	case "$?" in
+		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+	esac
+	;;
+  stop)
+	[ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
+	do_stop
+	case "$?" in
+		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+	esac
+	;;
+  restart|force-reload)
+	log_daemon_msg "Restarting $DESC" "$NAME"
+	do_stop
+	case "$?" in
+	  0|1)
+		do_start
+		case "$?" in
+			0) log_end_msg 0 ;;
+			1) log_end_msg 1 ;; # Old process is still running
+			*) log_end_msg 1 ;; # Failed to start
+		esac
+		;;
+	  *)
+		# Failed to stop
+		log_end_msg 1
+		;;
+	esac
+	;;
+  *)
+	echo "Usage: $N {start|stop|restart|force-reload}" >&2
+	exit 3
+	;;
+esac

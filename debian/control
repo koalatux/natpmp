@@ -1,0 +1,19 @@
+Source: natpmp
+Section: net
+Priority: extra
+Maintainer: Adrian Friedli <adi@koalatux.ch>
+Build-Depends: debhelper (>= 5)
+Standards-Version: 3.7.2
+
+Package: natpmp
+Architecture: any
+Depends: lsb-base (>= 3.0-6), iproute, iptables, ${shlibs:Depends}
+Description: NAT Port Mapping daemon
+ This is a daemon implementing NAT-PMP.
+ .
+ NAT-PMP is a protocol for handling port forwarding requests from clients
+ behind a NAT. NAT-PMP specifications are available at:
+  http://files.dns-sd.org/draft-cheshire-nat-pmp.txt
+ .
+ Allowed port range and maximal lifetime are configurable.
+ The port forwardings are performed by iptables.
