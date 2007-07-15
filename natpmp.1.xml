@@ -16,7 +16,7 @@
 	<refsynopsisdiv>
 		<cmdsynopsis>
 			<command>natpmp</command>
-			<arg choice="opt">-b</arg>
+			<arg choice="opt">-b <arg choice="opt">-p <replaceable>pidfile</replaceable></arg></arg>
 			<arg choice="plain">-i <replaceable>public-interface</replaceable></arg>
 			<arg choice="plain" rep="repeat">-a <replaceable>private-address</replaceable></arg>
 			<arg choice="opt">-t <replaceable>max-lifetime</replaceable></arg>
@@ -38,6 +38,15 @@
 			<varlistentry>
 				<term><option>-b</option></term>
 				<listitem><para>fork into background</para></listitem>
+			</varlistentry>
+			<varlistentry>
+				<term><option>-p <replaceable>pidfile</replaceable></option></term>
+				<listitem>
+					<para>
+						write the process ID to <replaceable>pidfile</replaceable>,
+						has only an effect when <option>-b</option> is given
+					</para>
+				</listitem>
 			</varlistentry>
 			<varlistentry>
 				<term><option>-i <replaceable>public-interface</replaceable></option></term>

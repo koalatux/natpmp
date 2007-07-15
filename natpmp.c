@@ -17,7 +17,7 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#define PROGRAM_VERSION "0.1.0alpha2"
+#define PROGRAM_VERSION "0.1.0alpha3"
 
 #include <arpa/inet.h>
 //#include <sys/types.h>
@@ -41,6 +41,9 @@
 #include "natpmp_defs.h"
 
 #define ADDRESS_CHECK_INTERVAL 1 /* s */
+
+/* the file to write the PID to */
+char * pidfile;
 
 /* the name of the public interface */
 char public_ifname[IFNAMSIZ];
@@ -371,6 +374,17 @@ void fork_to_background() {
 	if (child == -1) p_die("fork");
 	else if (child) {
 		printf("forked into background -- %i\n", child);
+		if (pidfile != NULL) {
+			FILE * pidfilefd;
+			pidfilefd = fopen(pidfile, "w");
+			if (pidfilefd == NULL) {
+				fprintf(stderr, "Could not write PID to file %s.\n", pidfile);
+			}
+			else {
+				fprintf(pidfilefd, "%i\n", child);
+				fclose(pidfilefd);
+			}
+		}
 		exit(EXIT_SUCCESS);
 	}
 }
@@ -452,7 +466,7 @@ void do_version() {
 			"You should have received a copy of the GNU General Public License along\n"
 			"with this program; if not, write to the Free Software Foundation, Inc.,\n"
 			"51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.\n"
-			);
+	      );
 }
 
 void print_public_ip_address() {
@@ -472,7 +486,7 @@ void init(int argc, char * argv[]) {
 	port_range_low = 1024; /* ports below 1024 are restricted ports */
 	port_range_high = 65535; /* 65535 is the highest port available */
 
-#define OPTSTRING "Vbi:a:t:l:u:"
+#define OPTSTRING "Vbp:i:a:t:l:u:"
 	/* parse the command line */
 	{
 		extern char *optarg;
@@ -504,6 +518,7 @@ void init(int argc, char * argv[]) {
 		int i = 0;
 		optind = 0;
 		opterr = -1;
+		pidfile = NULL;
 		memset(public_ifname, 0, sizeof(public_ifname));
 		while ( (opt = getopt(argc, argv, OPTSTRING)) != -1 ) {
 			/* check for nullstrings in the arguments */
@@ -522,6 +537,9 @@ void init(int argc, char * argv[]) {
 			switch (opt) {
 				case 'b': /* fork to background */
 					do_fork = -1;
+					break;
+				case 'p': /* PID file */
+					pidfile = optarg;
 					break;
 				case 'i': /* public interface name */
 					if (strlen(optarg) >= IFNAMSIZ) {
@@ -605,7 +623,7 @@ void init(int argc, char * argv[]) {
 		}
 
 		free(laddresses);
-		
+
 		dnat_init(argc - optind, &argv[optind]);
 	}
 
