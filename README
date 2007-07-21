@@ -20,7 +20,7 @@ Please report bugs to the author.
 
 Supported Platforms
 -------------------
-Linux support is done with iptables system calls. 
+GNU/Linux support is done with iptables system calls. 
 A nicer interface to the kernel is not planned because there's no stable
 API to use. If you really want to struggle with libiptc, you are welcome.
 

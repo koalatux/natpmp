@@ -89,7 +89,7 @@
 		</para>
 		<refsect2><title>iptables</title>
 			<para>
-				This backend uses Linux' iptables to do the port forwardings.
+				This backend uses GNU/Linux' iptables to do the port forwardings.
 				It takes one option to specify the iptables chain to use. If not set it defaults to <parameter>natpmp</parameter>.
 			</para>
 		</refsect2>
