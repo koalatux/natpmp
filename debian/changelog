@@ -1,6 +1,6 @@
-natpmp (0.1.0~unreleased) unstable; urgency=low
+natpmp (0.1.0) unstable; urgency=low
 
-  * Initial release (not really a release, only for testing purposes)
+  * Initial release
 
- -- Adrian Friedli <adi@koalatux.ch>  Sun, 15 Jul 2007 22:26:07 +0200
+ -- Adrian Friedli <adi@koalatux.ch>  Sun, 22 Jul 2007 02:39:26 +0200
 

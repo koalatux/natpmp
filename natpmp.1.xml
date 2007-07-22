@@ -100,7 +100,10 @@
 	</refsect1>
 
 	<refsect1><title>Reporting Bugs</title>
-		<para>Report bugs to <email>adi@koalatux.ch</email>.</para>
+		<para>
+			Please report bugs with the bug tracking system on the project page.
+			<ulink url="http://savannah.nongnu.org/projects/natpmp/">http://savannah.nongnu.org/projects/natpmp/</ulink>
+		</para>
 	</refsect1>
 
 	<refsect1><title>Copyright</title>

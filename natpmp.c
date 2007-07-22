@@ -17,7 +17,7 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#define PROGRAM_VERSION "0.1.0alpha3"
+#define PROGRAM_VERSION "0.1.0"
 
 #include <arpa/inet.h>
 //#include <sys/types.h>
