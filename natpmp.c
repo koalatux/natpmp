@@ -17,7 +17,7 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#define PROGRAM_VERSION "0.1.0"
+#define PROGRAM_VERSION "0.1.1-devel"
 
 #include <arpa/inet.h>
 //#include <sys/types.h>
@@ -180,7 +180,6 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 	answer_packet.header.op = request_packet->header.op;
 	answer_packet.answer.result = NATPMP_SUCCESS;
 	answer_packet.mapping.private_port = request_packet->mapping.private_port;
-	/* remember: public_port and mapped_port are the same, but differ in name for convience, mapped_port is used where a mapping exists. */
 	answer_packet.mapping.public_port = request_packet->mapping.public_port;
 	answer_packet.mapping.lifetime = request_packet->mapping.lifetime;
 
@@ -194,22 +193,22 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 
 		lease * a = get_lease_by_client_port(client, answer_packet.mapping.private_port);
 		if (a != NULL) {
-			/* lease exists, update expiration time of the requested protocol and answer with mapped port */
+			/* lease exists, update expiration time of the requested protocol and answer with public port */
 			uint32_t new_expires = now + ntohl(answer_packet.mapping.lifetime);
 			if (new_expires == next_lease_expires);
 			else if (new_expires < next_lease_expires) next_lease_expires = new_expires;
 			else if (a->expires[(int) protocol] <= next_lease_expires) update_expires = 1;
 			a->expires[(int) protocol] = new_expires;
-			answer_packet.mapping.mapped_port = a->mapped_port;
+			answer_packet.mapping.public_port = a->public_port;
 		}
 		else {
 			/* no lease exists, check for manual mapping */
-			uint16_t mapped_port;
-			int b = get_dnat_rule_by_client_port(protocol, &mapped_port, client, answer_packet.mapping.private_port);
+			uint16_t public_port;
+			int b = get_dnat_rule_by_client_port(protocol, &public_port, client, answer_packet.mapping.private_port);
 			if (b == -1) die("get_dnat_rule_by_client_port returned with error");
 			else if (b == 1) {
-				/* manual mapping exists, answer with mapped port */
-				answer_packet.mapping.mapped_port = mapped_port;
+				/* manual mapping exists, answer with public port */
+				answer_packet.mapping.public_port = public_port;
 			}
 			else {
 				/* no lease and no manual mapping exist, find a valid port and create a lease */
@@ -237,8 +236,8 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 					}
 					if (get_lease_by_port(answer_packet.mapping.public_port) == NULL &&
 							is_port_free(answer_packet.mapping.public_port) == 0 &&
-							get_dnat_rule_by_mapped_port(TCP, answer_packet.mapping.public_port, NULL, NULL) == 0 &&
-							get_dnat_rule_by_mapped_port(UDP, answer_packet.mapping.public_port, NULL, NULL) == 0) {
+							get_dnat_rule_by_public_port(TCP, answer_packet.mapping.public_port, NULL, NULL) == 0 &&
+							get_dnat_rule_by_public_port(UDP, answer_packet.mapping.public_port, NULL, NULL) == 0) {
 						/* TODO: acquiring the companion port to a manual mapping can be allowed to the same client */
 						/* these parameters are valid for mapping */
 
@@ -249,7 +248,7 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 							c.expires[(int) protocol] = now + ntohl(answer_packet.mapping.lifetime);
 							c.client = client;
 							c.private_port = answer_packet.mapping.private_port;
-							c.mapped_port = answer_packet.mapping.mapped_port;
+							c.public_port = answer_packet.mapping.public_port;
 							if (c.expires[(int) protocol] < next_lease_expires) next_lease_expires = c.expires[(int) protocol];
 							add_lease(&c);
 						}
@@ -258,7 +257,7 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 						{
 							int c = create_dnat_rule(
 									protocol,
-									answer_packet.mapping.mapped_port,
+									answer_packet.mapping.public_port,
 									client,
 									answer_packet.mapping.private_port);
 							if (c == -1) die("create_dnat_rule returned with error");
@@ -281,7 +280,7 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 		lease * a;
 		int remove_all;
 
-		if (answer_packet.mapping.mapped_port == 0 && answer_packet.mapping.private_port == 0) {
+		if (answer_packet.mapping.public_port == 0 && answer_packet.mapping.private_port == 0) {
 			/* removing all mappings of client (but only for requested protocol) */
 			remove_all = 1;
 		}
@@ -294,7 +293,7 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 		while (remove_all == 0 || (a = get_next_lease_by_client(client, NULL)) != NULL) {
 			if (a != NULL) {
 				/* destroy mapping */
-				int b = destroy_dnat_rule(protocol, a->mapped_port, client, a->private_port);
+				int b = destroy_dnat_rule(protocol, a->public_port, client, a->private_port);
 				if (b == -1) die("destroy_dnat_rule returned with error");
 				else if (b == 1) {
 					/* mapping may not be destroyed, it's a manual mapping, answer with refused */
@@ -741,7 +740,7 @@ int main(int argc, char * argv[]) {
 				void destroy_expired(const char protocol) {
 					if (a->expires[(int) protocol] <= now) {
 						a->expires[(int) protocol] = UINT32_MAX;
-						int b = destroy_dnat_rule(protocol, a->mapped_port, a->client, a->private_port);
+						int b = destroy_dnat_rule(protocol, a->public_port, a->client, a->private_port);
 						if (b == -1) die("destroy_dnat_rule returned with error");
 					}
 				}

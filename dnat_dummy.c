@@ -32,28 +32,28 @@ void dnat_init(int argc, char * argv[]) {
 	printf("\b\b})\n");
 }
 
-int get_dnat_rule_by_mapped_port(const char protocol, const uint16_t mapped_port, uint32_t * client, uint16_t * private_port) {
-	printf("get_dnat_rule_by_mapped_port(%hhd, %hu, *, *)\n", protocol, ntohs(mapped_port));
+int get_dnat_rule_by_public_port(const char protocol, const uint16_t public_port, uint32_t * client, uint16_t * private_port) {
+	printf("get_dnat_rule_by_public_port(%hhd, %hu, *, *)\n", protocol, ntohs(public_port));
 	if (client != NULL) *client = 0;
 	if (private_port != NULL) *private_port = 0;
 	return 0;
 }
 
-int get_dnat_rule_by_client_port(const char protocol, uint16_t * mapped_port, const uint32_t client, const uint16_t private_port) {
+int get_dnat_rule_by_client_port(const char protocol, uint16_t * public_port, const uint32_t client, const uint16_t private_port) {
 	struct in_addr addr = {client};
 	printf("get_dnat_rule_by_client_port(%hhd, *, %s, %hu)\n", protocol, inet_ntoa(addr), ntohs(private_port));
-	if (mapped_port != NULL) *mapped_port = 0;
+	if (public_port != NULL) *public_port = 0;
 	return 0;
 }
 
-int create_dnat_rule(const char protocol, const uint16_t mapped_port, const uint32_t client, const uint16_t private_port) {
+int create_dnat_rule(const char protocol, const uint16_t public_port, const uint32_t client, const uint16_t private_port) {
 	struct in_addr addr = {client};
-	printf("create_dnat_rule(%hhd, %hu, %s, %hu)\n", protocol, ntohs(mapped_port), inet_ntoa(addr), ntohs(private_port));
+	printf("create_dnat_rule(%hhd, %hu, %s, %hu)\n", protocol, ntohs(public_port), inet_ntoa(addr), ntohs(private_port));
 	return 0;
 }
 
-int destroy_dnat_rule(const char protocol, const uint16_t mapped_port, const uint32_t client, const uint16_t private_port) {
+int destroy_dnat_rule(const char protocol, const uint16_t public_port, const uint32_t client, const uint16_t private_port) {
 	struct in_addr addr = {client};
-	printf("destroy_dnat_rule(%hhd, %hu, %s, %hu)\n", protocol, ntohs(mapped_port), inet_ntoa(addr), ntohs(private_port));
+	printf("destroy_dnat_rule(%hhd, %hu, %s, %hu)\n", protocol, ntohs(public_port), inet_ntoa(addr), ntohs(private_port));
 	return 0;
 }

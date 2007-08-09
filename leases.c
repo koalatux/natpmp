@@ -82,11 +82,11 @@ void remove_lease_by_pointer(const lease * a) {
 	remove_lease( get_index_by_pointer(a) );
 }
 
-/* function that returns a lease pointer by mapped port number, NULL if port number is still unmapped */
+/* function that returns a lease pointer by public port number, NULL if public port number is still unmapped */
 lease * get_lease_by_port(const uint16_t port) {
 	int i;
 	for (i=0; i<lease_c; i++) {
-		if (leases[i].mapped_port == port) return &leases[i];
+		if (leases[i].public_port == port) return &leases[i];
 	}
 	return NULL;
 }

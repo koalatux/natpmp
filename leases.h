@@ -32,7 +32,7 @@ typedef struct {
 		uint32_t expires[3];
 	};
 	uint16_t private_port;
-	uint16_t mapped_port;
+	uint16_t public_port;
 } lease;
 
 
