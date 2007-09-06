@@ -57,7 +57,7 @@ void dnat_init(int argc, char * argv[]) {
 	printf("Using name of iptables chain: \"%s\"\n", chain_name);
 }
 
-const char * proto(const char protocol) {
+static const char * proto(const char protocol) {
 	if(protocol == UDP) return "udp";
 	if(protocol == TCP) return "tcp";
 	die("proto: invalid protocol");

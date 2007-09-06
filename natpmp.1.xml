@@ -36,6 +36,14 @@
 		</para>
 		<variablelist>
 			<varlistentry>
+				<term><option>-v</option></term>
+				<listitem><para>verbose mode</para></listitem>
+			</varlistentry>
+			<varlistentry>
+				<term><option>-q</option></term>
+				<listitem><para>quiet mode</para></listitem>
+			</varlistentry>
+			<varlistentry>
 				<term><option>-b</option></term>
 				<listitem><para>fork into background</para></listitem>
 			</varlistentry>
