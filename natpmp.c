@@ -460,7 +460,7 @@ void update_time() {
 
 //__attribute__ ((noreturn))
 void print_usage(const char * program_name) {
-	fprintf(stderr, "Usage: %s [-b] -i interface -a address [-a address [...]] -- backend-options\n", program_name);
+	fprintf(stderr, "Usage: %s [-v | -q] [-b [-p pidfile]] -i public-interface -a private-address ... [-t max-lifetime] [-l lower-port] [-u upper-port] [[--] backend-options]\n", program_name);
 	exit(EXIT_FAILURE);
 }
 

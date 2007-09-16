@@ -16,13 +16,14 @@
 	<refsynopsisdiv>
 		<cmdsynopsis>
 			<command>natpmp</command>
-			<arg choice="opt">-b <arg choice="opt">-p <replaceable>pidfile</replaceable></arg></arg>
+			<group><arg>-v</arg><arg>-q</arg></group>
+			<arg>-b <arg>-p <replaceable>pidfile</replaceable></arg></arg>
 			<arg choice="plain">-i <replaceable>public-interface</replaceable></arg>
 			<arg choice="plain" rep="repeat">-a <replaceable>private-address</replaceable></arg>
-			<arg choice="opt">-t <replaceable>max-lifetime</replaceable></arg>
-			<arg choice="opt">-l <replaceable>lower-port</replaceable></arg>
-			<arg choice="opt">-u <replaceable>upper-port</replaceable></arg>
-			<arg choice="opt"><arg choice="opt">--</arg> <replaceable>backend-options</replaceable></arg>
+			<arg>-t <replaceable>max-lifetime</replaceable></arg>
+			<arg>-l <replaceable>lower-port</replaceable></arg>
+			<arg>-u <replaceable>upper-port</replaceable></arg>
+			<arg><arg>--</arg> <replaceable>backend-options</replaceable></arg>
 		</cmdsynopsis>
 		<cmdsynopsis>
 			<command>natpmp</command>
