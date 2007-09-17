@@ -129,12 +129,12 @@ struct in_addr get_ip_address(const char * ifname) {
 	struct ifreq req;
 	/* len is already checked at command line parsing */
 	//if (strlen(ifname) >= IFNAMSIZ) die("get_ip_address: interface name too long");
-	strncpy(req.ifr_ifrn.ifrn_name, ifname, IFNAMSIZ);
+	strncpy(req.ifr_name, ifname, IFNAMSIZ);
 	int tfd = socket(PF_INET, SOCK_STREAM, 0);
 	int err = ioctl(tfd, SIOCGIFADDR, &req);
 	close(tfd);
 	if (err == 0) {
-		struct sockaddr_in * req_addr = (struct sockaddr_in *) &req.ifr_ifru.ifru_addr;
+		struct sockaddr_in * req_addr = (struct sockaddr_in *) &req.ifr_addr;
 		return (struct in_addr) req_addr->sin_addr;
 	}
 	else {
