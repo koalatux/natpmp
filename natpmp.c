@@ -197,8 +197,8 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 
 		if (ntohl(answer_packet.mapping.lifetime) > max_lifetime) {
 			/* lifetime too high, downgrade */
+			if (debuglevel >= 2) printf("Requested lifetime was %u, downgraded to %u\n", ntohl(answer_packet.mapping.lifetime), max_lifetime);
 			answer_packet.mapping.lifetime = htonl(max_lifetime);
-			if (debuglevel >= 2) printf("Requested lifetime was %i, downgraded to %i\n", ntohl(answer_packet.mapping.lifetime), max_lifetime);
 		}
 
 		lease * a = get_lease_by_client_port(client, answer_packet.mapping.private_port);
@@ -210,7 +210,7 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 			else if (a->expires[(int) protocol] <= next_lease_expires) update_expires = 1;
 			a->expires[(int) protocol] = new_expires;
 			answer_packet.mapping.public_port = a->public_port;
-			if (debuglevel >= 2) printf("Lease with public %s port %i for client %s updated\n", proto((int) protocol), a->public_port, inet_ntoa(t_addr->sin_addr));
+			if (debuglevel >= 2) printf("Lease with public %s port %hu for client %s updated\n", proto(protocol), ntohs(answer_packet.mapping.public_port), inet_ntoa(t_addr->sin_addr));
 		}
 		else {
 			/* no lease exists, check for manual mapping */
@@ -220,7 +220,7 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 			else if (b == 1) {
 				/* manual mapping exists, answer with public port */
 				answer_packet.mapping.public_port = public_port;
-				if (debuglevel >= 2) printf("Manual mapping for public %s port %i for client %s exists\n", proto((int) protocol), a->public_port, inet_ntoa(t_addr->sin_addr));
+				if (debuglevel >= 2) printf("Manual mapping for public %s port %hu for client %s exists\n", proto(protocol), ntohs(answer_packet.mapping.public_port), inet_ntoa(t_addr->sin_addr));
 			}
 			else {
 				/* no lease and no manual mapping exist, find a valid port and create a lease */
@@ -276,7 +276,7 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 							if (c == -1) die("create_dnat_rule returned with error");
 						}
 
-						if (debuglevel >= 2) printf("Lease with public %s port %i for client %s created\n", proto((int) protocol), a->public_port, inet_ntoa(t_addr->sin_addr));
+						if (debuglevel >= 2) printf("Lease with public %s port %hu for client %s created\n", proto(protocol), ntohs(answer_packet.mapping.public_port), inet_ntoa(t_addr->sin_addr));
 						break;
 					}
 
@@ -298,13 +298,13 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 		if (answer_packet.mapping.public_port == 0 && answer_packet.mapping.private_port == 0) {
 			/* removing all mappings of client (but only for requested protocol) */
 			remove_all = 1;
-			if (debuglevel >= 2) printf("Remove all %s leases for client %s\n", proto((int) protocol), inet_ntoa(t_addr->sin_addr));
+			if (debuglevel >= 2) printf("Trying to remove all %s leases for client %s\n", proto(protocol), inet_ntoa(t_addr->sin_addr));
 		}
 		else {
 			/* only removing a single mapping */
 			remove_all = 0;
 			a = get_lease_by_client_port(client, answer_packet.mapping.private_port);
-			if (debuglevel >= 2) printf("Remove lease with public %s port %i for client %s\n", proto((int) protocol), a->public_port, inet_ntoa(t_addr->sin_addr));
+			if (debuglevel >= 2) printf("Trying to remove lease with public %s port %hu for client %s\n", proto(protocol), ntohs(answer_packet.mapping.public_port), inet_ntoa(t_addr->sin_addr));
 		}
 
 		while (remove_all == 0 || (a = get_next_lease_by_client(client, NULL)) != NULL) {
@@ -315,6 +315,11 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 				else if (b == 1) {
 					/* mapping may not be destroyed, it's a manual mapping, answer with refused */
 					answer_packet.answer.result = NATPMP_REFUSED;
+					if (debuglevel >= 2) printf("Lease with public %s port %hu for client %s could not be removed\n", proto(protocol), ntohs(a->public_port), inet_ntoa(t_addr->sin_addr));
+				}
+				else
+				{
+					if (debuglevel >= 2) printf("Lease with public %s port %hu for client %s removed\n", proto(protocol), ntohs(a->public_port), inet_ntoa(t_addr->sin_addr));
 				}
 
 				/* update used protocols of lease */
@@ -332,7 +337,7 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 				else if (b == 1) {
 					/* manual mapping found, answer with refused */
 					answer_packet.answer.result = NATPMP_REFUSED;
-					if (debuglevel >= 2) printf("Lease with public %s port %i for client %s is mapped manually\n", proto((int) protocol), a->public_port, inet_ntoa(t_addr->sin_addr));
+					if (debuglevel >= 2) printf("Lease with public %s port %hu for client %s is mapped manually\n", proto(protocol), answer_packet.mapping.public_port, inet_ntoa(t_addr->sin_addr));
 				}
 			}
 		}
@@ -628,9 +633,9 @@ void init(int argc, char * argv[]) {
 		/* catch overflows */
 		if (port_low_offset < port_range_low) port_low_offset = port_range_low;
 
-		if (debuglevel >= 2) printf("Allowed port range: %i..%i, maximal lifetime: %i\n", port_range_low, port_range_high, max_lifetime);
+		if (debuglevel >= 2) printf("Allowed port range: %hu..%hu, maximal lifetime: %u\n", port_range_low, port_range_high, max_lifetime);
 		if (max_lifetime < NATPMP_RECOMMENDED_LIFETIME)
-			fprintf(stderr, "Warning: using maximal lifetime lower than recommended value %i\n", NATPMP_RECOMMENDED_LIFETIME);
+			fprintf(stderr, "Warning: using maximal lifetime lower than recommended value %u\n", NATPMP_RECOMMENDED_LIFETIME);
 
 		public_address = get_ip_address(public_ifname);
 		print_public_ip_address();
@@ -642,7 +647,9 @@ void init(int argc, char * argv[]) {
 			/* prepare data structures for poll */
 			ufd_v[i].events = POLLIN;
 
-			if (laddresses[i].s_addr != 0 && debuglevel >= 2) printf("Listening on %s\n", inet_ntoa(laddresses[i]));
+			if (laddresses[i].s_addr != 0) {
+				if (debuglevel >= 2) printf("Listening on %s\n", inet_ntoa(laddresses[i]));
+			}
 			else fprintf(stderr, "Warning: Listening on 0.0.0.0 is not a good idea\n");
 		}
 
@@ -675,16 +682,6 @@ void init(int argc, char * argv[]) {
 }
 
 int main(int argc, char * argv[]) {
-#if 0
-	/* test create_dnat_rule() XXX */
-	{
-		struct in_addr address;
-		inet_aton("192.168.1.2", &address);
-		create_dnat_rule(1, htons(81), address.s_addr, htons(80));
-		destroy_dnat_rule(2, htons(81), address.s_addr, htons(80));
-	}
-#endif
-
 	init(argc, argv);
 
 	uint32_t next_address_check = now;
@@ -767,7 +764,10 @@ int main(int argc, char * argv[]) {
 						a->expires[(int) protocol] = UINT32_MAX;
 						int b = destroy_dnat_rule(protocol, a->public_port, a->client, a->private_port);
 						if (b == -1) die("destroy_dnat_rule returned with error");
-						if (debuglevel >= 2) printf("Lease with public %s port %i expired\n", proto((int) protocol), a->public_port);
+						if (debuglevel >= 2) {
+							struct in_addr client = { a->client };
+							printf("Lease with public %s port %hu for client %s expired and removed\n", proto(protocol), a->public_port, inet_ntoa(client));
+						}
 					}
 				}
 

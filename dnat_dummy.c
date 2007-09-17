@@ -27,9 +27,10 @@ void dnat_init(int argc, char * argv[]) {
 	printf("dnat_init(%d, {", argc);
 	int i;
 	for (i=0; i<argc; i++) {
-		printf("\"%s\", ", argv[i]);
+		if (i != 0) printf(", ");
+		printf("\"%s\"", argv[i]);
 	}
-	printf("\b\b})\n");
+	printf("})\n");
 }
 
 int get_dnat_rule_by_public_port(const char protocol, const uint16_t public_port, uint32_t * client, uint16_t * private_port) {
