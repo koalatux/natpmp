@@ -337,7 +337,7 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 				else if (b == 1) {
 					/* manual mapping found, answer with refused */
 					answer_packet.answer.result = NATPMP_REFUSED;
-					if (debuglevel >= 2) printf("Lease with public %s port %hu for client %s is mapped manually\n", proto(protocol), answer_packet.mapping.public_port, inet_ntoa(t_addr->sin_addr));
+					if (debuglevel >= 2) printf("Lease with public %s port %hu for client %s is mapped manually\n", proto(protocol), ntohs(answer_packet.mapping.public_port), inet_ntoa(t_addr->sin_addr));
 				}
 			}
 		}
@@ -766,7 +766,7 @@ int main(int argc, char * argv[]) {
 						if (b == -1) die("destroy_dnat_rule returned with error");
 						if (debuglevel >= 2) {
 							struct in_addr client = { a->client };
-							printf("Lease with public %s port %hu for client %s expired and removed\n", proto(protocol), a->public_port, inet_ntoa(client));
+							printf("Lease with public %s port %hu for client %s expired and removed\n", proto(protocol), ntohs(a->public_port), inet_ntoa(client));
 						}
 					}
 				}
