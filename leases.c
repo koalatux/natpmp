@@ -21,6 +21,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef DEBUG_LEASES
+#include <arpa/inet.h>
+#include <stdio.h>
+#endif
+
 #include "die.h"
 #include "leases.h"
 
@@ -139,3 +144,26 @@ void do_update_expires() {
 		if (leases[i].expires[2] < next_lease_expires) next_lease_expires = leases[i].expires[2];
 	}
 }
+
+#ifdef DEBUG_LEASES
+/* function that prints a lease */
+void print_lease(int i) {
+	struct in_addr client = { leases[i].client };
+	printf("Client: %s, UDP-Expires: %u, TCP-Expires: %u, Private: %hu, Public: %hu\n",
+			inet_ntoa(client),
+			leases[i].expires[1],
+			leases[i].expires[2],
+			ntohs(leases[i].private_port),
+			ntohs(leases[i].public_port));
+}
+
+/* function to print all leases */
+void print_leases() {
+	printf("----LEASES----\n");
+	int i;
+	for (i=0; i<lease_c; i++) {
+		print_lease(i);
+	}
+	printf("--------------\n");
+}
+#endif

@@ -382,6 +382,10 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 
 	/* fire the packet to the client */
 	send_natpmp_packet(ufd, t_addr, (natpmp_packet_answer *) &answer_packet, sizeof(answer_packet));
+
+#ifdef DEBUG_LEASES
+	if (debuglevel >= 2) print_leases();
+#endif
 }
 
 /* being called on unsupported requests */
@@ -810,6 +814,9 @@ int main(int argc, char * argv[]) {
 					/* lease is no more used, remove it */
 					remove_lease_by_pointer(a);
 				}
+#ifdef DEBUG_LEASES
+				if (debuglevel >= 2) print_leases();
+#endif
 			}
 		}
 

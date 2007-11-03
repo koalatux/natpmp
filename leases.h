@@ -46,3 +46,8 @@ lease * get_lease_by_client_port(const uint32_t client, const uint16_t port);
 lease * get_next_lease_by_client(const uint32_t client, const lease * prev);
 lease * get_next_expired_lease(const uint32_t now, const lease * prev);
 void do_update_expires();
+
+#ifdef DEBUG_LEASES
+void print_lease(int i);
+void print_leases();
+#endif
