@@ -75,7 +75,7 @@ void remove_lease(const int i) {
 
 /* function that returns the index of a lease pointer */
 int get_index_by_pointer(const lease * a) {
-	int i = (a - leases) / sizeof(*leases);
+	int i = a - leases;
 	if (i >= 0 && i <= lease_c) return i;
 	else {
 		die("get_index_by_pointer: invalid pointer");
