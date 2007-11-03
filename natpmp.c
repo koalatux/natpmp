@@ -203,14 +203,46 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 
 		lease * a = get_lease_by_client_port(client, answer_packet.mapping.private_port);
 		if (a != NULL) {
-			/* lease exists, update expiration time of the requested protocol and answer with public port */
-			uint32_t new_expires = now + ntohl(answer_packet.mapping.lifetime);
-			if (new_expires == next_lease_expires);
-			else if (new_expires < next_lease_expires) next_lease_expires = new_expires;
-			else if (a->expires[(int) protocol] <= next_lease_expires) update_expires = 1;
-			a->expires[(int) protocol] = new_expires;
-			answer_packet.mapping.public_port = a->public_port;
-			if (debuglevel >= 2) printf("Lease with public %s port %hu for client %s updated\n", proto(protocol), ntohs(answer_packet.mapping.public_port), inet_ntoa(t_addr->sin_addr));
+			if (a->expires[(int) protocol] != UINT32_MAX) {
+				/* lease exists, update expiration time of the requested protocol and answer with public port */
+				uint32_t new_expires = now + ntohl(answer_packet.mapping.lifetime);
+				if (new_expires == next_lease_expires);
+				else if (new_expires < next_lease_expires) next_lease_expires = new_expires;
+				else if (a->expires[(int) protocol] <= next_lease_expires) update_expires = 1;
+				a->expires[(int) protocol] = new_expires;
+				answer_packet.mapping.public_port = a->public_port;
+				if (debuglevel >= 2) printf("Lease with public %s port %hu for client %s updated\n", proto(protocol), ntohs(answer_packet.mapping.public_port), inet_ntoa(t_addr->sin_addr));
+			}
+			else {
+				/* lease for other protocol exists, but not for this one*/
+				/* check for manual mapping */
+				/* TODO: remove redundant code */
+				uint16_t public_port;
+				int b = get_dnat_rule_by_client_port(protocol, &public_port, client, answer_packet.mapping.private_port);
+				if (b == -1) die("get_dnat_rule_by_client_port returned with error");
+				else if (b == 1) {
+					/* manual mapping exists, answer with public port */
+					answer_packet.mapping.public_port = public_port;
+					if (debuglevel >= 2) printf("Manual mapping for public %s port %hu for client %s exists\n", proto(protocol), ntohs(answer_packet.mapping.public_port), inet_ntoa(t_addr->sin_addr));
+				}
+				else {
+					/* add the lease to the other one */
+					answer_packet.mapping.public_port = a->public_port;
+					/* add the lease to the database */
+					a->expires[(int) protocol] = now + ntohl(answer_packet.mapping.lifetime);
+					if (a->expires[(int) protocol] < next_lease_expires) next_lease_expires = a->expires[(int) protocol];
+					/* create the mapping*/
+					{
+						int c = create_dnat_rule(
+								protocol,
+								answer_packet.mapping.public_port,
+								client,
+								answer_packet.mapping.private_port);
+						if (c == -1) die("create_dnat_rule returned with error");
+					}
+					if (debuglevel >= 2) printf("Lease with public %s port %hu for client %s added\n", proto(protocol), ntohs(answer_packet.mapping.public_port), inet_ntoa(t_addr->sin_addr));
+				}
+			}
 		}
 		else {
 			/* no lease exists, check for manual mapping */
