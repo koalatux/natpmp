@@ -1,13 +1,5 @@
-natpmp (0.2.0) unstable; urgency=low
+natpmp (0.2.0-1) unstable; urgency=low
 
-  * Verbose and Quiet mode added
-  * Fixed usage of net/if.h
+  * Initial Release. (Closes: #449098)
 
- -- Adrian Friedli <adi@koalatux.ch>  Fri, 02 Nov 2007 23:37:52 +0100
-
-natpmp (0.1.0) unstable; urgency=low
-
-  * Initial release
-
- -- Adrian Friedli <adi@koalatux.ch>  Sun, 22 Jul 2007 02:39:26 +0200
-
+ -- Adrian Friedli <adi@koalatux.ch>  Sat, 03 Nov 2007 01:25:51 +0100
