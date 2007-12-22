@@ -1,5 +1,3 @@
-#!/bin/sh
-#
 #    natpmp - an implementation of NAT-PMP
 #    Copyright (C) 2007  Adrian Friedli
 #
@@ -23,7 +21,7 @@ TARGET = natpmp
 OBJECTS = natpmp.o die.o leases.o linux_iptables.o
 MANPAGES = natpmp.1
 DEPFILE = Makefile.depend
-CCFLAGS += -W -Wall
+CFLAGS += -W -Wall
 
 all: $(TARGET)
 
@@ -37,10 +35,10 @@ clean:
 man: $(MANPAGES)
 
 $(TARGET): $(OBJECTS)
-	$(CC) $(CCFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $^
 
 %.o: %.c
-	$(CC) $(CCFLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 %: %.xml
 	docbook2x-man $<
