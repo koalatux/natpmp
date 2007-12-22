@@ -40,6 +40,7 @@
 #include "dnat_api.h"
 #include "natpmp_defs.h"
 
+
 #define ADDRESS_CHECK_INTERVAL 1 /* s */
 
 /* level of verbosity */
@@ -197,7 +198,7 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 
 		if (ntohl(answer_packet.mapping.lifetime) > max_lifetime) {
 			/* lifetime too high, downgrade */
-			if (debuglevel >= 2) printf("Requested lifetime was %u, downgraded to %u\n", ntohl(answer_packet.mapping.lifetime), max_lifetime);
+			debug_printf("Requested lifetime was %u, downgraded to %u\n", ntohl(answer_packet.mapping.lifetime), max_lifetime);
 			answer_packet.mapping.lifetime = htonl(max_lifetime);
 		}
 
@@ -211,7 +212,7 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 				else if (a->expires[(int) protocol] <= next_lease_expires) update_expires = 1;
 				a->expires[(int) protocol] = new_expires;
 				answer_packet.mapping.public_port = a->public_port;
-				if (debuglevel >= 2) printf("Lease with public %s port %hu for client %s updated\n", proto(protocol), ntohs(answer_packet.mapping.public_port), inet_ntoa(t_addr->sin_addr));
+				debug_printf("Lease with public %s port %hu for client %s updated\n", proto(protocol), ntohs(answer_packet.mapping.public_port), inet_ntoa(t_addr->sin_addr));
 			}
 			else {
 				/* lease for other protocol exists, but not for this one*/
@@ -223,7 +224,7 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 				else if (b == 1) {
 					/* manual mapping exists, answer with public port */
 					answer_packet.mapping.public_port = public_port;
-					if (debuglevel >= 2) printf("Manual mapping for public %s port %hu for client %s exists\n", proto(protocol), ntohs(answer_packet.mapping.public_port), inet_ntoa(t_addr->sin_addr));
+					debug_printf("Manual mapping for public %s port %hu for client %s exists\n", proto(protocol), ntohs(answer_packet.mapping.public_port), inet_ntoa(t_addr->sin_addr));
 				}
 				else {
 					/* add the lease to the other one */
@@ -240,7 +241,7 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 								answer_packet.mapping.private_port);
 						if (c == -1) die("create_dnat_rule returned with error");
 					}
-					if (debuglevel >= 2) printf("Lease with public %s port %hu for client %s added\n", proto(protocol), ntohs(answer_packet.mapping.public_port), inet_ntoa(t_addr->sin_addr));
+					debug_printf("Lease with public %s port %hu for client %s added\n", proto(protocol), ntohs(answer_packet.mapping.public_port), inet_ntoa(t_addr->sin_addr));
 				}
 			}
 		}
@@ -252,7 +253,7 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 			else if (b == 1) {
 				/* manual mapping exists, answer with public port */
 				answer_packet.mapping.public_port = public_port;
-				if (debuglevel >= 2) printf("Manual mapping for public %s port %hu for client %s exists\n", proto(protocol), ntohs(answer_packet.mapping.public_port), inet_ntoa(t_addr->sin_addr));
+				debug_printf("Manual mapping for public %s port %hu for client %s exists\n", proto(protocol), ntohs(answer_packet.mapping.public_port), inet_ntoa(t_addr->sin_addr));
 			}
 			else {
 				/* no lease and no manual mapping exist, find a valid port and create a lease */
@@ -276,7 +277,7 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 						answer_packet.mapping.public_port = request_packet->mapping.public_port;
 						answer_packet.mapping.lifetime = request_packet->mapping.lifetime;
 						answer_packet.answer.result = NATPMP_OUTOFRESOURCES;
-						if (debuglevel >= 2) printf("No free ports available\n");
+						debug_printf("No free ports available\n");
 						break;
 					}
 					if (get_lease_by_port(answer_packet.mapping.public_port) == NULL &&
@@ -308,7 +309,7 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 							if (c == -1) die("create_dnat_rule returned with error");
 						}
 
-						if (debuglevel >= 2) printf("Lease with public %s port %hu for client %s created\n", proto(protocol), ntohs(answer_packet.mapping.public_port), inet_ntoa(t_addr->sin_addr));
+						debug_printf("Lease with public %s port %hu for client %s created\n", proto(protocol), ntohs(answer_packet.mapping.public_port), inet_ntoa(t_addr->sin_addr));
 						break;
 					}
 
@@ -330,13 +331,13 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 		if (answer_packet.mapping.public_port == 0 && answer_packet.mapping.private_port == 0) {
 			/* removing all mappings of client (but only for requested protocol) */
 			remove_all = 1;
-			if (debuglevel >= 2) printf("Trying to remove all %s leases for client %s\n", proto(protocol), inet_ntoa(t_addr->sin_addr));
+			debug_printf("Trying to remove all %s leases for client %s\n", proto(protocol), inet_ntoa(t_addr->sin_addr));
 		}
 		else {
 			/* only removing a single mapping */
 			remove_all = 0;
 			a = get_lease_by_client_port(client, answer_packet.mapping.private_port);
-			if (debuglevel >= 2) printf("Trying to remove lease with public %s port %hu for client %s\n", proto(protocol), ntohs(answer_packet.mapping.public_port), inet_ntoa(t_addr->sin_addr));
+			debug_printf("Trying to remove lease with public %s port %hu for client %s\n", proto(protocol), ntohs(answer_packet.mapping.public_port), inet_ntoa(t_addr->sin_addr));
 		}
 
 		while (remove_all == 0 || (a = get_next_lease_by_client(client, NULL)) != NULL) {
@@ -347,7 +348,7 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 				else if (b == 1) {
 					/* mapping may not be destroyed, it's a manual mapping, answer with refused */
 					answer_packet.answer.result = NATPMP_REFUSED;
-					if (debuglevel >= 2) printf("Lease with public %s port %hu for client %s could not be removed\n", proto(protocol), ntohs(a->public_port), inet_ntoa(t_addr->sin_addr));
+					debug_printf("Lease with public %s port %hu for client %s could not be removed\n", proto(protocol), ntohs(a->public_port), inet_ntoa(t_addr->sin_addr));
 				}
 				else
 				{
@@ -365,12 +366,15 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 			else {
 				/* lease not found, check for manual mapping */
 				int b = get_dnat_rule_by_client_port(protocol, NULL, client, answer_packet.mapping.private_port);
-				if (b == -1) die("get_dnat_rule_by_client_port returned with error");
+				if (b == -1) {
+					die("get_dnat_rule_by_client_port returned with error");
+				}
 				else if (b == 1) {
 					/* manual mapping found, answer with refused */
 					answer_packet.answer.result = NATPMP_REFUSED;
 					if (debuglevel >= 2) printf("Lease with public %s port %hu for client %s is mapped manually\n", proto(protocol), ntohs(answer_packet.mapping.public_port), inet_ntoa(t_addr->sin_addr));
 				}
+				break;
 			}
 		}
 
@@ -471,19 +475,23 @@ void read_from_socket(const int s_i) {
 	if (packet_request.dummy.header.version != NATPMP_VERSION) {
 		/* Apple's Airport stations send an opcode of 0 here, but it's not defined in the draft,
 		 * perhaps this could be used for fingerprinting my implementation :-) */
+		debug_printf("Handling unsupported request...\n");
 		handle_unsupported_request(ufd_v[s_i].fd, &t_addr, &packet_request.dummy, NATPMP_UNSUPPORTEDVERSION);
 		return;
 	}
 	if (packet_request.dummy.header.op & NATPMP_ANSFLAG) return;
 
 	/* do things depending on the packet's op code */
+	debug_printf("Handling request...\n");
 	switch (packet_request.dummy.header.op) {
 		case NATPMP_PUBLICIPADDRESS :
+			debug_printf("Handling public address...\n");
 			if (pkgsize < (ssize_t) sizeof(natpmp_packet_publicipaddress_request)) return; /* TODO: errorlog */
 			send_publicipaddress(ufd_v[s_i].fd, &t_addr);
 			break;
 		case NATPMP_MAP_UDP :
 		case NATPMP_MAP_TCP :
+			debug_printf("Handling port mapping...\n");
 			if (pkgsize < (ssize_t) sizeof(natpmp_packet_map_request)) return; /* TODO: errorlog */
 			handle_map_request(ufd_v[s_i].fd, &t_addr, &packet_request.map);
 			break;
@@ -544,7 +552,11 @@ void init(int argc, char * argv[]) {
 	port_range_low = 1024; /* ports below 1024 are restricted ports */
 	port_range_high = 65535; /* 65535 is the highest port available */
 
-#define OPTSTRING "Vvqbp:i:a:t:l:u:"
+	if (argc==1) {
+		print_usage(argv[0]);
+	}
+
+#define OPTSTRING "hVvqbp:i:a:t:l:u:"
 	/* parse the command line */
 	{
 		extern char *optarg;
@@ -556,6 +568,9 @@ void init(int argc, char * argv[]) {
 		opterr = 0;
 		while ( (opt = getopt(argc, argv, OPTSTRING)) != -1 ) {
 			switch (opt) {
+				case 'h':
+					print_usage(argv[0]);
+					exit(0);
 				case 'a':
 					ufd_c++;
 					break;

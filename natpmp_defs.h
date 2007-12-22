@@ -17,7 +17,6 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-
 #define NATPMP_RECOMMENDED_LIFETIME 3600 /* s */
 #define NATPMP_PORT htons(5351)
 #define NATPMP_MULTICAST_ADDRESS htonl(0xe0000001) /* 224.0.0.1 */

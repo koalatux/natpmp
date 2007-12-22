@@ -18,7 +18,6 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -29,6 +28,8 @@
 #include "dnat_api.h"
 #include "die.h"
 
+
+#define IPTABLES_BIN "/sbin/iptables"
 #define CHAIN_NAME_MAXSIZE 30
 #define DEFAULT_CHAIN_NAME "natpmp"
 
@@ -48,13 +49,13 @@ char chain_name[32] = DEFAULT_CHAIN_NAME;
 void dnat_init(int argc, char * argv[]) {
 	if (argc > 1) die("Give only name of iptables chain as backend option.");
 	if (argc == 0) {
-		printf("Using name of iptables chain default: \"" DEFAULT_CHAIN_NAME "\"\n");
+		debug_printf("Using name of iptables chain default: " DEFAULT_CHAIN_NAME "\n");
 		return;
 	}
 	if (*argv[0] == '\0') die("Backend option is a very little bit too short.");
 	if (strlen(argv[0]) > CHAIN_NAME_MAXSIZE) die("Backend option is too long.");
 	strncpy(chain_name, argv[0], sizeof(chain_name));
-	printf("Using name of iptables chain: \"%s\"\n", chain_name);
+	debug_printf("Using name of iptables chain: %s\n", chain_name);
 }
 
 static const char * proto(const char protocol) {
@@ -70,10 +71,13 @@ int change_dnat_rule(const char c_arg, const char protocol, const uint16_t publi
 	client_addr.s_addr = client;
 
 	snprintf(command, sizeof(command),
-			"iptables -t nat -%c %s -p %s --dport %d -j DNAT --to-destination %s:%d",
+			IPTABLES_BIN " -t nat -%c %s -p %s --dport %d -j DNAT --to-destination %s:%d",
 			c_arg, chain_name, proto(protocol),ntohs(public_port), inet_ntoa(client_addr), ntohs(private_port));
 
-	if(system(command)) return -1;
+	debug_printf("Executing: %s\n", command);
+	int ret = system(command);
+	if (ret < 0) return -1;
+
 	return 0;
 }
 

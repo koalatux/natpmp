@@ -17,6 +17,8 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+extern int debuglevel;
+#define debug_printf(...) { if (debuglevel >= 2) fprintf(stderr, __VA_ARGS__); }
 
 void die(const char * e) __attribute__ ((noreturn)) ;
 void p_die(const char * p) __attribute__ ((noreturn)) ;
