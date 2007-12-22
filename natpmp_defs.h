@@ -40,46 +40,49 @@
 typedef struct {
 	uint8_t version;
 	uint8_t op;
-} _natpmp_header;
+} __attribute__((packed)) _natpmp_header;
 
 typedef struct {
-	uint16_t result __attribute__ ((packed));
-	uint32_t epoch __attribute__ ((packed));
-} _natpmp_answer;
-
-typedef struct {
-	in_port_t private_port __attribute__ ((packed));
-	in_port_t public_port __attribute__ ((packed));
-	uint32_t lifetime __attribute__ ((packed));
-} _natpmp_mapping;
+	uint16_t result;
+	uint32_t epoch;
+} __attribute__((packed)) _natpmp_answer;
 
 
 typedef struct {
-	_natpmp_header header;
-} natpmp_packet_dummy_request, natpmp_packet_publicipaddress_request;
+	in_port_t private_port;
+	in_port_t public_port;
+	uint32_t lifetime;
+} __attribute__((packed)) _natpmp_mapping ;
+
 
 typedef struct {
 	_natpmp_header header;
-	_natpmp_answer answer;
-} natpmp_packet_dummy_answer;
+} __attribute__((packed)) natpmp_packet_dummy_request, natpmp_packet_publicipaddress_request;
+
 
 typedef struct {
 	_natpmp_header header;
 	_natpmp_answer answer;
-	in_addr_t public_ip_address __attribute__ ((packed));
-} natpmp_packet_publicipaddress_answer;
+} __attribute__((packed)) natpmp_packet_dummy_answer;
+
+typedef struct {
+	_natpmp_header header;
+	_natpmp_answer answer;
+	in_addr_t public_ip_address;
+} __attribute__((packed)) natpmp_packet_publicipaddress_answer;
 
 typedef struct {
 	_natpmp_header header;
 	uint16_t _reserved;
 	_natpmp_mapping mapping;
-} natpmp_packet_map_request;
+} __attribute__((packed)) natpmp_packet_map_request;
 
 typedef struct {
 	_natpmp_header header;
 	_natpmp_answer answer;
 	_natpmp_mapping mapping;
-} natpmp_packet_map_answer;
+} __attribute__((packed)) natpmp_packet_map_answer;
+
 
 typedef union {
 	natpmp_packet_dummy_request dummy;
