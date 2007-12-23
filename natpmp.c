@@ -507,13 +507,15 @@ void update_time() {
 	unow = a.tv_usec + 1000000 * now;
 }
 
-//__attribute__ ((noreturn))
 void print_usage(const char * program_name) {
 	fprintf(stderr, "Usage: %s [-v | -q] [-b [-p pidfile]] -i public-interface -a private-address ... [-t max-lifetime] [-l lower-port] [-u upper-port] [[--] backend-options]\n", program_name);
-	exit(EXIT_FAILURE);
 }
 
-void do_version() {
+void print_help(const char * program_name) {
+	print_usage(program_name);
+}
+
+void print_version() {
 	printf(
 			"natpmp version " PROGRAM_VERSION ".\n\n"
 
@@ -554,6 +556,7 @@ void init(int argc, char * argv[]) {
 
 	if (argc==1) {
 		print_usage(argv[0]);
+		exit(EXIT_FAILURE);
 	}
 
 #define OPTSTRING "hVvqbp:i:a:t:l:u:"
@@ -569,15 +572,14 @@ void init(int argc, char * argv[]) {
 		while ( (opt = getopt(argc, argv, OPTSTRING)) != -1 ) {
 			switch (opt) {
 				case 'h':
-					print_usage(argv[0]);
-					exit(0);
+					print_help(argv[0]);
+					exit(EXIT_SUCCESS);
 				case 'a':
 					ufd_c++;
 					break;
 				case 'V':
-					do_version();
+					print_version();
 					exit(EXIT_SUCCESS);
-					break;
 			}
 		}
 
@@ -603,6 +605,7 @@ void init(int argc, char * argv[]) {
 					if (optarg[0] == '\0') {
 						fprintf(stderr, "%s: argument %i is a bit too short.\n", argv[0], optind - 1);
 						print_usage(argv[0]);
+						exit(EXIT_FAILURE);
 					}
 					break;
 			}
@@ -625,6 +628,7 @@ void init(int argc, char * argv[]) {
 					if (strlen(optarg) >= IFNAMSIZ) {
 						fprintf(stderr, "%s: argument %i is too long for a valid interface name.\n", argv[0], optind - 1);
 						print_usage(argv[0]);
+						exit(EXIT_FAILURE);
 					}
 					strncpy(public_ifname, optarg, IFNAMSIZ);
 					break;
@@ -632,6 +636,7 @@ void init(int argc, char * argv[]) {
 					if (inet_aton(optarg, &laddresses[i]) == 0) {
 						fprintf(stderr, "%s: argument %i is not a valid ip address.\n", argv[0], optind - 1);
 						print_usage(argv[0]);
+						exit(EXIT_FAILURE);
 					}
 					i++;
 					break;
@@ -640,6 +645,7 @@ void init(int argc, char * argv[]) {
 					if (max_lifetime == 0) {
 						fprintf(stderr, "%s: argument %i is not a valid lifetime.\n", argv[0], optind - 1);
 						print_usage(argv[0]);
+						exit(EXIT_FAILURE);
 					}
 					break;
 				case 'l': /* lowest port number allowed */
@@ -647,6 +653,7 @@ void init(int argc, char * argv[]) {
 					if (port_range_low == 0) {
 						fprintf(stderr, "%s: argument %i is not a valid port number.\n", argv[0], optind - 1);
 						print_usage(argv[0]);
+						exit(EXIT_FAILURE);
 					}
 					break;
 				case 'u': /* highest port number allowed */
@@ -654,22 +661,26 @@ void init(int argc, char * argv[]) {
 					if (port_range_high == 0) {
 						fprintf(stderr, "%s: argument %i is not a valid port number.\n", argv[0], optind - 1);
 						print_usage(argv[0]);
+						exit(EXIT_FAILURE);
 					}
 					break;
 				default: /* invalid option */
 					fprintf(stderr, "%s: argument %i is invalid.\n", argv[0], optind - 1);
 					print_usage(argv[0]);
+					exit(EXIT_FAILURE);
 			}
 		}
 
 		if (public_ifname[0] == 0) {
 			fprintf(stderr, "%s: option required -- i\n", argv[0]);
 			print_usage(argv[0]);
+			exit(EXIT_FAILURE);
 		}
 
 		if (ufd_c == 0) {
 			fprintf(stderr, "%s: option required -- a\n", argv[0]);
 			print_usage(argv[0]);
+			exit(EXIT_FAILURE);
 		}
 
 		/* port_range_low <= port_range_high; else bahaviour is undefined
@@ -677,6 +688,7 @@ void init(int argc, char * argv[]) {
 		if (port_range_high < port_range_low) {
 			fprintf(stderr, "%s: lower port may not be smaller than upper port. \n", argv[0]);
 			print_usage(argv[0]);
+			exit(EXIT_FAILURE);
 		}
 
 		/* port_low_offset >= port_range_low; else range not guaranteed */
