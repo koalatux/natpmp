@@ -1,0 +1,20 @@
+0.2.2	????-??-??
+	* patches and suggestions by Nikos Mavrogiannopoulos (thanks a lot): 
+		* better usage of packed attribute.
+		* infinite loop fixed.
+		* even more debugging output.
+	* debian subdirectory removed.
+	* minor changes.
+	* CHANGELOG file added.
+
+0.2.1	2007-11-03
+	* more debugging output added.
+	* lots of bugfixes.
+
+0.2.0	2007-11-03
+	* verbose and quiet mode introduced.
+	* bugfixes, cleanup and minor changes.
+
+0.1.0	2007-07-22
+	* first release.
+	* initial iptables stuff by Simon Neininger (thanks).
