@@ -1,0 +1,5 @@
+ * write CHANGELOG entry
+ * bump version number in natpmp.c
+ * commit
+ * make man
+ * pack, sign and upload
