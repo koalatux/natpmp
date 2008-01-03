@@ -29,7 +29,11 @@
 #include "die.h"
 
 
-#define IPTABLES_BIN "/sbin/iptables"
+#ifndef IPTABLES_PATH
+#define IPTABLES_PATH "/sbin"
+#endif
+#define IPTABLES_BIN IPTABLES_PATH "/iptables"
+
 #define CHAIN_NAME_MAXSIZE 30
 #define DEFAULT_CHAIN_NAME "natpmp"
 
@@ -65,7 +69,7 @@ static const char * proto(const char protocol) {
 }
 
 /* function that gets wrapped by create_dnat_rule() and destroy_dnat_rule() */
-int change_dnat_rule(const char c_arg, const char protocol, const uint16_t public_port, const uint32_t client, const uint16_t private_port) {
+static int change_dnat_rule(const char c_arg, const char protocol, const uint16_t public_port, const uint32_t client, const uint16_t private_port) {
 	char command[256];
 	struct in_addr client_addr;
 	client_addr.s_addr = client;
