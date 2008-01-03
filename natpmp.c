@@ -17,7 +17,7 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#define PROGRAM_VERSION "0.2.1"
+#define PROGRAM_VERSION "0.2.2"
 
 #include <arpa/inet.h>
 //#include <sys/types.h>
@@ -519,7 +519,7 @@ void print_version() {
 	printf(
 			"natpmp version " PROGRAM_VERSION ".\n\n"
 
-			"Copyright (C) 2007  Adrian Friedli.\n\n"
+			"Copyright (C) 2007-2008  Adrian Friedli.\n\n"
 
 			"This program is free software; you can redistribute it and/or modify\n"
 			"it under the terms of the GNU General Public License as published by\n"

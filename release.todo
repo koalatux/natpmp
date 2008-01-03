@@ -1,5 +1,6 @@
  * write CHANGELOG entry
  * bump version number in natpmp.c
+ * possibly update year in copyright notice
  * commit
  * make man
  * pack, sign and upload

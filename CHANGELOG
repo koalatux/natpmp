@@ -1,9 +1,10 @@
-0.2.2	????-??-??
+0.2.2	2008-01-03
 	* patches and suggestions by Nikos Mavrogiannopoulos (thanks a lot): 
 		* better usage of packed attribute.
 		* infinite loop fixed.
 		* even more debugging output.
 	* debian subdirectory removed.
+	* macro for PATH to iptables executable.
 	* minor changes.
 	* CHANGELOG file added.
 

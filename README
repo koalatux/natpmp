@@ -52,3 +52,6 @@ downloaded from git and if you want the manpage type `make man', releases
 should have a prebuilt manpage. `make install' only installs the binary to
 /usr/sbin, install the init script and the manpage manually if you want
 them. The init script needs `ip' from iproute to run.
+If your iptables binary is not in /sbin, you have to define it with the
+IPTABLES_PATH macro, e.g. run before compile:
+	export CFLAGS=-DIPTABLES_PATH=\\\"/usr/sbin\\\"
