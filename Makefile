@@ -17,34 +17,34 @@
 #
 
 
-TARGET = natpmp
-OBJECTS = natpmp.o die.o leases.o linux_iptables.o
+PROG = natpmp
+OBJS = natpmp.o die.o leases.o linux_iptables.o
 MANPAGES = natpmp.1
 DEPFILE = Makefile.depend
 CFLAGS += -W -Wall
 
-all: $(TARGET)
+all: $(PROG)
 
 install:
 	mkdir -p $(DESTDIR)/usr/sbin
-	install -m 755 $(TARGET) $(DESTDIR)/usr/sbin
+	install -m 755 $(PROG) $(DESTDIR)/usr/sbin
 
 clean:
-	rm -rf $(TARGET) $(OBJECTS) $(DEPFILE)
+	rm -rf $(PROG) $(OBJS) $(DEPFILE)
 
 man: $(MANPAGES)
 
-$(TARGET): $(OBJECTS)
-	$(CC) $(CFLAGS) -o $@ $^
+$(PROG): $(OBJS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 %.o: %.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $<
 
 %: %.xml
 	docbook2x-man $<
 
 $(DEPFILE): *.[ch]
-	$(CC) -MM $^ > $@
+	$(CC) $(CPPFLAGS) -MM $^ > $@
 
 -include $(DEPFILE)
 
