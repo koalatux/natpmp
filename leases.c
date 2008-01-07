@@ -29,141 +29,148 @@
 #include "die.h"
 #include "leases.h"
 
-/* list of leases */
-lease * leases;
-/* number of allocated leases */
-int lease_a;
-/* number of leases */
-int lease_c;
+/* linked list of leases */
+struct lease *first = NULL;
+struct lease *last = NULL;
 
-/* time the next lease expires */
+/* time the next leases expire */
 uint32_t next_lease_expires = UINT32_MAX;
-uint32_t ueber_next_lease_expires = UINT32_MAX;
-/* indicates if the next_lease_expires has to be updated, e.g. on change or removal of a lease */
-int update_expires = 0;
-
-/* function that reallocates space for at minimum amount leases */
-void allocate_leases(const int amount) {
-	/* TODO: make ALLOCATE_AMOUNT dynamic, depending on the value of lease_a, e.g. between 8 and 64 */
-	if (amount > lease_a) {
-		lease_a += ALLOCATE_AMOUNT;
-	}
-	else if (lease_a >= amount + 2 * ALLOCATE_AMOUNT) {
-		lease_a -= ALLOCATE_AMOUNT;
-	}
-	else {
-		return;
-	}
-	leases = realloc(leases, lease_a * sizeof(*leases));
-	if (leases == NULL) p_die("realloc");
-}
+/* indicates if the next_lease_expires has to be updated, e.g. on change or
+ * removal of a lease */
+int update_expires = 0; /* TODO ??? */
 
 /* function that adds a lease to the list of leases */
-int add_lease(const lease * a) {
-	allocate_leases(lease_c + 1);
-	memcpy(&leases[lease_c], a, sizeof(*leases));
-	return lease_c++;
+struct lease *add_lease(const struct lease *a)
+{
+	struct lease *new = malloc(sizeof(struct lease));
+	if (new == NULL) p_die("malloc");
+	*new = *a;
+
+	if (last) last->next = new;
+	else first = new;
+	new->prev = last;
+	new->next = NULL;
+	last = new;
+	return new;
 }
 
 /* function that removes a lease from the list of leases */
-void remove_lease(const int i) {
-	lease_c--;
-	/* TODO: don't fill the gap, better store it's index in a table */
-	memmove(&leases[i], &leases[i+1], (lease_c-i) * sizeof(*leases));
-	allocate_leases(lease_c);
-}
-
-/* function that returns the index of a lease pointer */
-int get_index_by_pointer(const lease * a) {
-	int i = a - leases;
-	if (i >= 0 && i <= lease_c) return i;
+void remove_lease(struct lease *a)
+{
+	if (a->prev == NULL && a->next == NULL) {
+		first = NULL;
+		last = NULL;
+	}
 	else {
-		die("get_index_by_pointer: invalid pointer");
+		if (a->prev) a->prev->next = a->next;
+		else first = a->next;
+		if (a->next) a->next->prev = a->prev;
+		else last = a->prev;
 	}
+	free(a);
 }
 
-/* function that removes a lease from the list of leases with a given pointer to the lease */
-void remove_lease_by_pointer(const lease * a) {
-	remove_lease( get_index_by_pointer(a) );
-}
-
-/* function that returns a lease pointer by public port number, NULL if public port number is still unmapped */
-lease * get_lease_by_port(const uint16_t port) {
-	int i;
-	for (i=0; i<lease_c; i++) {
-		if (leases[i].public_port == port) return &leases[i];
-	}
+/* function that returns a lease pointer by public port number, NULL if public
+ * port number is still unmapped */
+struct lease *get_lease_by_port(const uint16_t port)
+{
+	if (first == NULL) return NULL;
+	struct lease *a = first;
+	do {
+		if (a->public_port == port) return a;
+	} while ((a = a->next));
 	return NULL;
 }
 
-/* function that returns a lease pointer by client ip address and private port numnber, NULL if no lease found */
-lease * get_lease_by_client_port(const uint32_t client, const uint16_t port) {
-	int i;
-	for (i=0; i<lease_c; i++) {
-		if (leases[i].client == client && leases[i].private_port == port) return &leases[i];
-	}
+/* function that returns a lease pointer by client ip address and private port
+ * numnber, NULL if no lease found */
+struct lease *get_lease_by_client_port(const uint32_t client,
+		const uint16_t port)
+{
+	if (first == NULL) return NULL;
+	struct lease *a = first;
+	do {
+		if (a->client == client && a->private_port == port) return a;
+	} while ((a = a->next));
 	return NULL;
 }
 
-/* function that returns a pointer to the next lease by client ip address, NULL if no leases found, prev is the pointer to the lease from where to search from, NULL to search from beginning */
-lease * get_next_lease_by_client(const uint32_t client, const lease * prev) {
-	int i;
-	if (prev == NULL) i = 0;
-	else i = get_index_by_pointer(prev);
-	for (; i<lease_c; i++) {
-		if (leases[i].client == client) return &leases[i];
-	}
+/* function that returns a pointer to the next lease by client ip address, NULL
+ * if no leases found, prev is the pointer to the lease from where to search
+ * from, NULL to search from beginning */
+struct lease *get_next_lease_by_client(const uint32_t client,
+		struct lease *prev)
+{
+	if (first == NULL || (prev && prev->next == NULL)) return NULL;
+	struct lease *a = (prev) ? prev->next : first;
+	do {
+		if (a->client == client) return a;
+	} while ((a = a->next));
 	return NULL;
 }
 
-/* function that returns a pointer to the next expired lease, NULL if no leases found, provide the actual time with now, prev is the pointer to the lease from where to search from, NULL to search from beginning */
-lease * get_next_expired_lease(const uint32_t now, const lease * prev) {
-	int i;
-	if (prev == NULL) {
-		ueber_next_lease_expires = UINT32_MAX;
-		i = 0;
-	}
-	else i = get_index_by_pointer(prev);
-	for (; i<lease_c; i++) {
-		if (leases[i].expires[1] <= now) return &leases[i];
-		else if (leases[i].expires[1] < ueber_next_lease_expires) ueber_next_lease_expires = leases[i].expires[1];
-		if (leases[i].expires[2] <= now) return &leases[i];
-		else if (leases[i].expires[2] < ueber_next_lease_expires) ueber_next_lease_expires = leases[i].expires[2];
-	}
-	next_lease_expires = ueber_next_lease_expires;
-	update_expires = 0;
+/* function that returns a pointer to the next expired lease, NULL if no leases
+ * found, provide the actual time with now, prev is the pointer to the lease
+ * from where to search from, NULL to search from beginning */
+struct lease *get_next_expired_lease(const uint32_t now,
+		struct lease *prev)
+{
+	if (first == NULL || (prev && prev->next == NULL)) return NULL;
+	struct lease *a = (prev) ? prev->next : first;
+	do {
+		if (a->expires[1] <= now) return a;
+		if (a->expires[2] <= now) return a;
+	} while ((a = a->next));
 	return NULL;
 }
 
-/* function that updates the next_lease_expires variable */
-void do_update_expires() {
-	int i;
+/* function that updates the next_lease_expires variables */
+void do_update_expires()
+{
+	if (!update_expires) return;
 	next_lease_expires = UINT32_MAX;
-	for (i=0; i<lease_c; i++) {
-		if (leases[i].expires[1] < next_lease_expires) next_lease_expires = leases[i].expires[1];
-		if (leases[i].expires[2] < next_lease_expires) next_lease_expires = leases[i].expires[2];
+	if (first) {
+		struct lease *a = first;
+		do {
+			if (a->expires[1] < next_lease_expires)
+				next_lease_expires = a->expires[1];
+			if (a->expires[2] < next_lease_expires)
+				next_lease_expires = a->expires[2];
+		} while ((a = a->next));
 	}
+	update_expires = 0;
+#ifdef DEBUG_LEASES
+	if (debuglevel >= 2)
+		printf("next lease expires: %u\n", next_lease_expires);
+#endif
 }
 
 #ifdef DEBUG_LEASES
 /* function that prints a lease */
-void print_lease(int i) {
-	struct in_addr client = { leases[i].client };
-	printf("Client: %s, UDP-Expires: %u, TCP-Expires: %u, Private: %hu, Public: %hu\n",
+void print_lease(const struct lease *a)
+{
+	struct in_addr client = { a->client };
+	printf("Client: %s, UDP-Expires: %u, TCP-Expires: %u, Private: %hu, "
+			"Public: %hu\n",
 			inet_ntoa(client),
-			leases[i].expires[1],
-			leases[i].expires[2],
-			ntohs(leases[i].private_port),
-			ntohs(leases[i].public_port));
+			a->expires[1],
+			a->expires[2],
+			ntohs(a->private_port),
+			ntohs(a->public_port));
 }
 
 /* function to print all leases */
-void print_leases() {
+void print_leases()
+{
 	printf("----LEASES----\n");
-	int i;
-	for (i=0; i<lease_c; i++) {
-		print_lease(i);
+	if (first) {
+		struct lease *a = first;
+		do {
+			print_lease(a);
+		} while ((a = a->next));
 	}
 	printf("--------------\n");
+	if (update_expires == 0)
+		printf("next lease expires: %u\n", next_lease_expires);
 }
 #endif

@@ -70,17 +70,6 @@ uint32_t timestamp;
 uint32_t now;
 uint64_t unow;
 
-/* list of leases */
-extern lease * leases;
-/* number of allocated leases */
-extern int lease_a;
-/* number of leases */
-extern int lease_c;
-
-/* time the next lease expires */
-extern uint32_t next_lease_expires;
-extern int update_expires;
-
 /* list of socket file descriptors */
 struct pollfd * ufd_v;
 /* number of sockets */
@@ -95,15 +84,6 @@ static const char * proto(const char protocol) {
 	die("proto: invalid protocol");
 }
 
-/* function for allocating memory */
-void allocate_all() {
-	/* allocate memory for leases */
-	lease_c = 0;
-	lease_a = ALLOCATE_AMOUNT;
-	leases = malloc(ALLOCATE_AMOUNT * sizeof(*leases));
-	if (leases == NULL) p_die("malloc");
-}
-
 /* close all sockets and free allocated memory */
 void close_all() {
 	int i;
@@ -111,7 +91,7 @@ void close_all() {
 		close(ufd_v[i].fd);
 	}
 	free(ufd_v);
-	free(leases);
+	/* TODO free all leases */
 }
 
 /* function for sending */
@@ -202,8 +182,9 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 			answer_packet.mapping.lifetime = htonl(max_lifetime);
 		}
 
-		lease * a = get_lease_by_client_port(client, answer_packet.mapping.private_port);
-		if (a != NULL) {
+		struct lease * a = get_lease_by_client_port(client,
+				answer_packet.mapping.private_port);
+		if (a) {
 			if (a->expires[(int) protocol] != UINT32_MAX) {
 				/* lease exists, update expiration time of the requested protocol and answer with public port */
 				uint32_t new_expires = now + ntohl(answer_packet.mapping.lifetime);
@@ -289,7 +270,7 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 
 						/* add the lease to the database */
 						{
-							lease c;
+							struct lease c;
 							c.expires[UDP] = UINT32_MAX; c.expires[TCP] = UINT32_MAX;
 							c.expires[(int) protocol] = now + ntohl(answer_packet.mapping.lifetime);
 							c.client = client;
@@ -325,7 +306,7 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 	}
 	else {
 		/* remove a mapping */
-		lease * a;
+		struct lease * a;
 		int remove_all;
 
 		if (answer_packet.mapping.public_port == 0 && answer_packet.mapping.private_port == 0) {
@@ -340,8 +321,11 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 			debug_printf("Trying to remove lease with public %s port %hu for client %s\n", proto(protocol), ntohs(answer_packet.mapping.public_port), inet_ntoa(t_addr->sin_addr));
 		}
 
-		while (remove_all == 0 || (a = get_next_lease_by_client(client, NULL)) != NULL) {
-			if (a != NULL) {
+		struct lease *prev = NULL;
+		while (remove_all == 0 || (a = get_next_lease_by_client(client, prev))) {
+			prev = a->prev;
+
+			if (a) {
 				/* destroy mapping */
 				int b = destroy_dnat_rule(protocol, a->public_port, client, a->private_port);
 				if (b == -1) die("destroy_dnat_rule returned with error");
@@ -360,7 +344,7 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 				a->expires[(int) protocol] = UINT32_MAX;
 				if (a->expires[UDP] == UINT32_MAX && a->expires[TCP] == UINT32_MAX) {
 					/* lease is no more used, remove it */
-					remove_lease_by_pointer(a);
+					remove_lease(a);
 				}
 			}
 			else {
@@ -404,7 +388,7 @@ void handle_unsupported_request(const int ufd, const struct sockaddr_in * t_addr
 void send_publicipaddress(const int ufd, const struct sockaddr_in * t_addr) {
 	natpmp_packet_publicipaddress_answer packet;
 	packet.header.op = NATPMP_PUBLICIPADDRESS;
-	if (public_address.s_addr != 0) packet.answer.result = NATPMP_SUCCESS;
+	if (public_address.s_addr) packet.answer.result = NATPMP_SUCCESS;
 	else packet.answer.result = NATPMP_NETFAILURE;
 	packet.public_ip_address = public_address.s_addr;
 	send_natpmp_packet(ufd, t_addr, (natpmp_packet_answer *) &packet, sizeof(packet));
@@ -436,7 +420,7 @@ void fork_to_background() {
 	if (child == -1) p_die("fork");
 	else if (child) {
 		if (debuglevel >= 1) printf("forked into background -- %i\n", child);
-		if (pidfile != NULL) {
+		if (pidfile) {
 			FILE * pidfilefd;
 			pidfilefd = fopen(pidfile, "w");
 			if (pidfilefd == NULL) {
@@ -538,7 +522,7 @@ void print_version() {
 }
 
 void print_public_ip_address() {
-	if (public_address.s_addr != 0) {
+	if (public_address.s_addr) {
 		if (debuglevel >= 2) printf("IP address of %s: %s\n", public_ifname, inet_ntoa(public_address));
 	}
 	else {
@@ -710,7 +694,7 @@ void init(int argc, char * argv[]) {
 			/* prepare data structures for poll */
 			ufd_v[i].events = POLLIN;
 
-			if (laddresses[i].s_addr != 0) {
+			if (laddresses[i].s_addr) {
 				if (debuglevel >= 2) printf("Listening on %s\n", inet_ntoa(laddresses[i]));
 			}
 			else fprintf(stderr, "Warning: Listening on 0.0.0.0 is not a good idea\n");
@@ -733,9 +717,6 @@ void init(int argc, char * argv[]) {
 	/* set timestamp */
 	update_time();
 	timestamp = now; /* TODO: move to where tables get (re)loaded */
-
-	/* allocate some memory and set some variables */
-	allocate_all();
 
 	/* fill out the multicast address for sending address changes to */
 	memset(&multicast_address, 0, sizeof(multicast_address));
@@ -800,14 +781,14 @@ int main(int argc, char * argv[]) {
 
 		/* announce the public ip address on change */
 		if (next_announce_send <= unow) {
-			if (public_address.s_addr != 0) {
+			if (public_address.s_addr) {
 				int i;
 				for (i=0; i<ufd_c; i++) {
 					send_publicipaddress(ufd_v[i].fd, &multicast_address);
 				}
 			}
 
-			if (announce_count + 1 < NATPMP_ANNOUNCE_PACKETS && public_address.s_addr != 0) {
+			if (announce_count + 1 < NATPMP_ANNOUNCE_PACKETS && public_address.s_addr) {
 				next_announce_send = unow + (1 << announce_count) * NATPMP_ADDRESS_ANNOUNCE_INTERVAL;
 				announce_count++;
 			}
@@ -819,8 +800,12 @@ int main(int argc, char * argv[]) {
 
 		/* destroy expired mappings */
 		if (next_lease_expires <= now) {
-			lease * a;
-			while ((a = get_next_expired_lease(now, NULL)) != NULL) {
+			update_expires = 1;
+			struct lease *a;
+			struct lease *prev = NULL;
+			while ((a = get_next_expired_lease(now, prev))) {
+				prev = a->prev;
+
 				/* local function that destroys the mapping */
 				void destroy_expired(const char protocol) {
 					if (a->expires[(int) protocol] <= now) {
@@ -839,7 +824,7 @@ int main(int argc, char * argv[]) {
 
 				if (a->expires[UDP] == UINT32_MAX && a->expires[TCP] == UINT32_MAX) {
 					/* lease is no more used, remove it */
-					remove_lease_by_pointer(a);
+					remove_lease(a);
 				}
 #ifdef DEBUG_LEASES
 				if (debuglevel >= 2) print_leases();
@@ -847,10 +832,7 @@ int main(int argc, char * argv[]) {
 			}
 		}
 
-		/* update_expires if it hasn't been done by get_next_expired_lease */
-		if (update_expires) {
-			do_update_expires();
-			update_expires = 0;
-		}
+		/* update_expires if necessary */
+		do_update_expires();
 	}
 }

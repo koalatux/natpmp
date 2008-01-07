@@ -21,33 +21,41 @@
 #include <stdint.h>
 
 
-#define ALLOCATE_AMOUNT 8
-
-typedef struct {
+struct lease {
 	/* IP addresses and port numbers are stored in network byte order! */
-	/* this is a hack for convience, only the fields 1 and 2 are used in expires */
+	/* this is a hack for convience, only the fields 1 and 2 are used
+	 * in expires */
 	union {
 		uint32_t client;
-		/* protocols are stored with two different expires fields 1 for udp and 2 for tcp, an expires value of UINT32_MAX indicates an unused protocol */
+		/* protocols are stored with two different expires fields 1 for
+		 * udp and 2 for tcp, an expires value of UINT32_MAX indicates
+		 * an unused protocol */
 		uint32_t expires[3];
 	};
 	uint16_t private_port;
 	uint16_t public_port;
-} lease;
+	struct lease *prev;
+	struct lease *next;
+};
 
 
-void allocate_leases(const int amount);
-int add_lease(const lease * a);
-void remove_lease(const int i);
-int get_index_by_pointer(const lease * a);
-void remove_lease_by_pointer(const lease * a);
-lease * get_lease_by_port(const uint16_t port);
-lease * get_lease_by_client_port(const uint32_t client, const uint16_t port);
-lease * get_next_lease_by_client(const uint32_t client, const lease * prev);
-lease * get_next_expired_lease(const uint32_t now, const lease * prev);
+/* time the next leases expire */
+extern uint32_t next_lease_expires;
+extern int update_expires;
+
+
+struct lease *add_lease(const struct lease *a);
+void remove_lease(struct lease *a);
+struct lease *get_lease_by_port(const uint16_t port);
+struct lease *get_lease_by_client_port(const uint32_t client,
+		const uint16_t port);
+struct lease *get_next_lease_by_client(const uint32_t client,
+		struct lease *prev);
+struct lease *get_next_expired_lease(const uint32_t now,
+		struct lease *prev);
 void do_update_expires();
 
 #ifdef DEBUG_LEASES
-void print_lease(int i);
+void print_lease(const struct lease *a);
 void print_leases();
 #endif
