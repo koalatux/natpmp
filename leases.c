@@ -19,7 +19,6 @@
 
 
 #include <stdlib.h>
-#include <string.h>
 
 #ifdef DEBUG_LEASES
 #include <arpa/inet.h>
