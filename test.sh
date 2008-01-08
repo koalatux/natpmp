@@ -193,9 +193,9 @@ request_mapping 2 2000 2200 3600 && \
 # deletion tests #
 set_system 2
 
-#info_0 "Trying to delete a foreign mapping."
-#request_mapping 1 2000 $old_public_port 0 && \
-#[ $lifetime -ne 0 ] && error_1 "Incorrect answer."
+info_0 "Trying to delete a foreign mapping."
+request_mapping 1 2000 $old_public_port 0 && \
+[ $lifetime -ne 0 ] && error_1 "Incorrect answer."
 
 info_0 "Trying to delete all UDP mappings."
 request_mapping 1 0 0 0 && \

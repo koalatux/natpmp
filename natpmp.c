@@ -166,7 +166,8 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 	uint32_t client = t_addr->sin_addr.s_addr;
 
 	/* copy some values to the answer packet */
-	natpmp_packet_map_answer *answer_packet;
+	natpmp_packet_map_answer new_answer_packet;
+	natpmp_packet_map_answer *answer_packet = &new_answer_packet;
 	answer_packet->header.op = request_packet->header.op;
 	answer_packet->answer.result = NATPMP_SUCCESS;
 	answer_packet->mapping.private_port = request_packet->mapping.private_port;
@@ -323,8 +324,6 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 
 		struct lease *prev = NULL;
 		while (remove_all == 0 || (a = get_next_lease_by_client(client, prev))) {
-			prev = a->prev;
-
 			if (a) {
 				/* destroy mapping */
 				int b = destroy_dnat_rule(protocol, a->public_port, client, a->private_port);
@@ -344,22 +343,24 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 				a->expires[(int) protocol] = UINT32_MAX;
 				if (a->expires[UDP] == UINT32_MAX && a->expires[TCP] == UINT32_MAX) {
 					/* lease is no more used, remove it */
+					prev = a->prev;
 					remove_lease(a);
+				} else {
+					prev = a;
 				}
-			}
-			else {
+			} else if (remove_all == 0) {
 				/* lease not found, check for manual mapping */
 				int b = get_dnat_rule_by_client_port(protocol, NULL, client, answer_packet->mapping.private_port);
 				if (b == -1) {
 					die("get_dnat_rule_by_client_port returned with error");
-				}
-				else if (b == 1) {
+				} else if (b == 1) {
 					/* manual mapping found, answer with refused */
 					answer_packet->answer.result = NATPMP_REFUSED;
 					if (debuglevel >= 2) printf("Lease with public %s port %hu for client %s is mapped manually\n", proto(protocol), ntohs(answer_packet->mapping.public_port), inet_ntoa(t_addr->sin_addr));
 				}
-				break;
 			}
+
+			if (remove_all == 0 || a == NULL) break;
 		}
 
 		if (answer_packet->answer.result == NATPMP_SUCCESS) {
@@ -372,6 +373,7 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 	send_natpmp_packet(ufd, t_addr, (natpmp_packet_answer *) answer_packet, sizeof(*answer_packet));
 
 #ifdef DEBUG_LEASES
+	printf("epoch: %u\n", now - timestamp);
 	if (debuglevel >= 2) print_leases();
 #endif
 }
