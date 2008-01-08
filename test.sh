@@ -193,8 +193,8 @@ request_mapping 2 2000 2200 3600 && \
 # deletion tests #
 set_system 2
 
-info_0 "Trying to delete a foreign mapping."
-request_mapping 1 2000 $old_public_port 0 && \
+info_0 "Trying to delete a mapping that doesn't exist."
+request_mapping 1 2008 0 0 && \
 [ $lifetime -ne 0 ] && error_1 "Incorrect answer."
 
 info_0 "Trying to delete all UDP mappings."
@@ -208,15 +208,15 @@ request_mapping 2 0 0 0 && \
 set_system 1
 
 info_0 "Trying to delete a companion port of a mapping."
-request_mapping 2 2000 $old_public_port 0 && \
+request_mapping 2 2000 0 0 && \
 [ $lifetime -ne 0 ] && error_1 "Incorrect answer."
 
 info_0 "Trying to delete a mapping."
-request_mapping 1 2000 $old_public_port 0 && \
+request_mapping 1 2000 0 0 && \
 [ $lifetime -ne 0 ] && error_1 "Incorrect answer."
 
 info_0 "Trying to delete the mapping again."
-request_mapping 1 2000 $old_public_port 0 && \
+request_mapping 1 2000 0 0 && \
 [ $lifetime -ne 0 ] && error_1 "Incorrect answer."
 
 # lease renewing and expiring tests #
