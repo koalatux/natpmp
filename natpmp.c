@@ -166,88 +166,88 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 	uint32_t client = t_addr->sin_addr.s_addr;
 
 	/* copy some values to the answer packet */
-	natpmp_packet_map_answer answer_packet;
-	answer_packet.header.op = request_packet->header.op;
-	answer_packet.answer.result = NATPMP_SUCCESS;
-	answer_packet.mapping.private_port = request_packet->mapping.private_port;
-	answer_packet.mapping.public_port = request_packet->mapping.public_port;
-	answer_packet.mapping.lifetime = request_packet->mapping.lifetime;
+	natpmp_packet_map_answer *answer_packet;
+	answer_packet->header.op = request_packet->header.op;
+	answer_packet->answer.result = NATPMP_SUCCESS;
+	answer_packet->mapping.private_port = request_packet->mapping.private_port;
+	answer_packet->mapping.public_port = request_packet->mapping.public_port;
+	answer_packet->mapping.lifetime = request_packet->mapping.lifetime;
 
-	if (answer_packet.mapping.lifetime) {
+	if (answer_packet->mapping.lifetime) {
 		/* creating a mapping is requested */
 
-		if (ntohl(answer_packet.mapping.lifetime) > max_lifetime) {
+		if (ntohl(answer_packet->mapping.lifetime) > max_lifetime) {
 			/* lifetime too high, downgrade */
-			debug_printf("Requested lifetime was %u, downgraded to %u\n", ntohl(answer_packet.mapping.lifetime), max_lifetime);
-			answer_packet.mapping.lifetime = htonl(max_lifetime);
+			debug_printf("Requested lifetime was %u, downgraded to %u\n", ntohl(answer_packet->mapping.lifetime), max_lifetime);
+			answer_packet->mapping.lifetime = htonl(max_lifetime);
 		}
 
 		struct lease * a = get_lease_by_client_port(client,
-				answer_packet.mapping.private_port);
+				answer_packet->mapping.private_port);
 		if (a) {
 			if (a->expires[(int) protocol] != UINT32_MAX) {
 				/* lease exists, update expiration time of the requested protocol and answer with public port */
-				uint32_t new_expires = now + ntohl(answer_packet.mapping.lifetime);
+				uint32_t new_expires = now + ntohl(answer_packet->mapping.lifetime);
 				if (new_expires == next_lease_expires);
 				else if (new_expires < next_lease_expires) next_lease_expires = new_expires;
 				else if (a->expires[(int) protocol] <= next_lease_expires) update_expires = 1;
 				a->expires[(int) protocol] = new_expires;
-				answer_packet.mapping.public_port = a->public_port;
-				debug_printf("Lease with public %s port %hu for client %s updated\n", proto(protocol), ntohs(answer_packet.mapping.public_port), inet_ntoa(t_addr->sin_addr));
+				answer_packet->mapping.public_port = a->public_port;
+				debug_printf("Lease with public %s port %hu for client %s updated\n", proto(protocol), ntohs(answer_packet->mapping.public_port), inet_ntoa(t_addr->sin_addr));
 			}
 			else {
 				/* lease for other protocol exists, but not for this one*/
 				/* check for manual mapping */
 				/* TODO: remove redundant code */
 				uint16_t public_port;
-				int b = get_dnat_rule_by_client_port(protocol, &public_port, client, answer_packet.mapping.private_port);
+				int b = get_dnat_rule_by_client_port(protocol, &public_port, client, answer_packet->mapping.private_port);
 				if (b == -1) die("get_dnat_rule_by_client_port returned with error");
 				else if (b == 1) {
 					/* manual mapping exists, answer with public port */
-					answer_packet.mapping.public_port = public_port;
-					debug_printf("Manual mapping for public %s port %hu for client %s exists\n", proto(protocol), ntohs(answer_packet.mapping.public_port), inet_ntoa(t_addr->sin_addr));
+					answer_packet->mapping.public_port = public_port;
+					debug_printf("Manual mapping for public %s port %hu for client %s exists\n", proto(protocol), ntohs(answer_packet->mapping.public_port), inet_ntoa(t_addr->sin_addr));
 				}
 				else {
 					/* add the lease to the other one */
-					answer_packet.mapping.public_port = a->public_port;
+					answer_packet->mapping.public_port = a->public_port;
 					/* add the lease to the database */
-					a->expires[(int) protocol] = now + ntohl(answer_packet.mapping.lifetime);
+					a->expires[(int) protocol] = now + ntohl(answer_packet->mapping.lifetime);
 					if (a->expires[(int) protocol] < next_lease_expires) next_lease_expires = a->expires[(int) protocol];
 					/* create the mapping*/
 					{
 						int c = create_dnat_rule(
 								protocol,
-								answer_packet.mapping.public_port,
+								answer_packet->mapping.public_port,
 								client,
-								answer_packet.mapping.private_port);
+								answer_packet->mapping.private_port);
 						if (c == -1) die("create_dnat_rule returned with error");
 					}
-					debug_printf("Lease with public %s port %hu for client %s added\n", proto(protocol), ntohs(answer_packet.mapping.public_port), inet_ntoa(t_addr->sin_addr));
+					debug_printf("Lease with public %s port %hu for client %s added\n", proto(protocol), ntohs(answer_packet->mapping.public_port), inet_ntoa(t_addr->sin_addr));
 				}
 			}
 		}
 		else {
 			/* no lease exists, check for manual mapping */
 			uint16_t public_port;
-			int b = get_dnat_rule_by_client_port(protocol, &public_port, client, answer_packet.mapping.private_port);
+			int b = get_dnat_rule_by_client_port(protocol, &public_port, client, answer_packet->mapping.private_port);
 			if (b == -1) die("get_dnat_rule_by_client_port returned with error");
 			else if (b == 1) {
 				/* manual mapping exists, answer with public port */
-				answer_packet.mapping.public_port = public_port;
-				debug_printf("Manual mapping for public %s port %hu for client %s exists\n", proto(protocol), ntohs(answer_packet.mapping.public_port), inet_ntoa(t_addr->sin_addr));
+				answer_packet->mapping.public_port = public_port;
+				debug_printf("Manual mapping for public %s port %hu for client %s exists\n", proto(protocol), ntohs(answer_packet->mapping.public_port), inet_ntoa(t_addr->sin_addr));
 			}
 			else {
 				/* no lease and no manual mapping exist, find a valid port and create a lease */
 
 				/* assure the port is not under the allowed range */
-				if (ntohs(answer_packet.mapping.public_port) < port_range_low)
-					answer_packet.mapping.public_port = htons(ntohs(answer_packet.mapping.public_port) + port_low_offset);
+				if (ntohs(answer_packet->mapping.public_port) < port_range_low)
+					answer_packet->mapping.public_port = htons(ntohs(answer_packet->mapping.public_port) + port_low_offset);
 				/* catch overflows */
-				if (ntohs(answer_packet.mapping.public_port) < port_range_low)
-					answer_packet.mapping.public_port = htons(port_range_low);
+				if (ntohs(answer_packet->mapping.public_port) < port_range_low)
+					answer_packet->mapping.public_port = htons(port_range_low);
 				/* assure the port is not over the allowed range */
-				if (ntohs(answer_packet.mapping.public_port) > port_range_high)
-					answer_packet.mapping.public_port = htons(ntohs(answer_packet.mapping.public_port) %
+				if (ntohs(answer_packet->mapping.public_port) > port_range_high)
+					answer_packet->mapping.public_port = htons(ntohs(answer_packet->mapping.public_port) %
 							(port_range_high - port_range_low + 1) + port_range_low);
 
 				/* find a free port */
@@ -255,16 +255,16 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 				while (1) {
 					if (try_count++ > port_range_high - port_range_low) {
 						/* all ports checked, no free port found, restore variables and answer with out of resources */
-						answer_packet.mapping.public_port = request_packet->mapping.public_port;
-						answer_packet.mapping.lifetime = request_packet->mapping.lifetime;
-						answer_packet.answer.result = NATPMP_OUTOFRESOURCES;
+						answer_packet->mapping.public_port = request_packet->mapping.public_port;
+						answer_packet->mapping.lifetime = request_packet->mapping.lifetime;
+						answer_packet->answer.result = NATPMP_OUTOFRESOURCES;
 						debug_printf("No free ports available\n");
 						break;
 					}
-					if (get_lease_by_port(answer_packet.mapping.public_port) == NULL &&
-							is_port_free(answer_packet.mapping.public_port) == 0 &&
-							get_dnat_rule_by_public_port(TCP, answer_packet.mapping.public_port, NULL, NULL) == 0 &&
-							get_dnat_rule_by_public_port(UDP, answer_packet.mapping.public_port, NULL, NULL) == 0) {
+					if (get_lease_by_port(answer_packet->mapping.public_port) == NULL &&
+							is_port_free(answer_packet->mapping.public_port) == 0 &&
+							get_dnat_rule_by_public_port(TCP, answer_packet->mapping.public_port, NULL, NULL) == 0 &&
+							get_dnat_rule_by_public_port(UDP, answer_packet->mapping.public_port, NULL, NULL) == 0) {
 						/* TODO: acquiring the companion port to a manual mapping can be allowed to the same client */
 						/* these parameters are valid for mapping */
 
@@ -272,10 +272,10 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 						{
 							struct lease c;
 							c.expires[UDP] = UINT32_MAX; c.expires[TCP] = UINT32_MAX;
-							c.expires[(int) protocol] = now + ntohl(answer_packet.mapping.lifetime);
+							c.expires[(int) protocol] = now + ntohl(answer_packet->mapping.lifetime);
 							c.client = client;
-							c.private_port = answer_packet.mapping.private_port;
-							c.public_port = answer_packet.mapping.public_port;
+							c.private_port = answer_packet->mapping.private_port;
+							c.public_port = answer_packet->mapping.public_port;
 							if (c.expires[(int) protocol] < next_lease_expires) next_lease_expires = c.expires[(int) protocol];
 							add_lease(&c);
 						}
@@ -284,21 +284,21 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 						{
 							int c = create_dnat_rule(
 									protocol,
-									answer_packet.mapping.public_port,
+									answer_packet->mapping.public_port,
 									client,
-									answer_packet.mapping.private_port);
+									answer_packet->mapping.private_port);
 							if (c == -1) die("create_dnat_rule returned with error");
 						}
 
-						debug_printf("Lease with public %s port %hu for client %s created\n", proto(protocol), ntohs(answer_packet.mapping.public_port), inet_ntoa(t_addr->sin_addr));
+						debug_printf("Lease with public %s port %hu for client %s created\n", proto(protocol), ntohs(answer_packet->mapping.public_port), inet_ntoa(t_addr->sin_addr));
 						break;
 					}
 
-					if (ntohs(answer_packet.mapping.public_port) >= port_range_high) {
-						answer_packet.mapping.public_port = htons(port_range_low);
+					if (ntohs(answer_packet->mapping.public_port) >= port_range_high) {
+						answer_packet->mapping.public_port = htons(port_range_low);
 					}
 					else {
-						answer_packet.mapping.public_port = htons(ntohs(answer_packet.mapping.public_port) + 1);
+						answer_packet->mapping.public_port = htons(ntohs(answer_packet->mapping.public_port) + 1);
 					}
 				}
 			}
@@ -309,7 +309,7 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 		struct lease * a;
 		int remove_all;
 
-		if (answer_packet.mapping.public_port == 0 && answer_packet.mapping.private_port == 0) {
+		if (answer_packet->mapping.public_port == 0 && answer_packet->mapping.private_port == 0) {
 			/* removing all mappings of client (but only for requested protocol) */
 			remove_all = 1;
 			debug_printf("Trying to remove all %s leases for client %s\n", proto(protocol), inet_ntoa(t_addr->sin_addr));
@@ -317,8 +317,8 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 		else {
 			/* only removing a single mapping */
 			remove_all = 0;
-			a = get_lease_by_client_port(client, answer_packet.mapping.private_port);
-			debug_printf("Trying to remove lease with public %s port %hu for client %s\n", proto(protocol), ntohs(answer_packet.mapping.public_port), inet_ntoa(t_addr->sin_addr));
+			a = get_lease_by_client_port(client, answer_packet->mapping.private_port);
+			debug_printf("Trying to remove lease with public %s port %hu for client %s\n", proto(protocol), ntohs(answer_packet->mapping.public_port), inet_ntoa(t_addr->sin_addr));
 		}
 
 		struct lease *prev = NULL;
@@ -331,7 +331,7 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 				if (b == -1) die("destroy_dnat_rule returned with error");
 				else if (b == 1) {
 					/* mapping may not be destroyed, it's a manual mapping, answer with refused */
-					answer_packet.answer.result = NATPMP_REFUSED;
+					answer_packet->answer.result = NATPMP_REFUSED;
 					debug_printf("Lease with public %s port %hu for client %s could not be removed\n", proto(protocol), ntohs(a->public_port), inet_ntoa(t_addr->sin_addr));
 				}
 				else
@@ -349,27 +349,27 @@ void handle_map_request(const int ufd, const struct sockaddr_in * t_addr, const 
 			}
 			else {
 				/* lease not found, check for manual mapping */
-				int b = get_dnat_rule_by_client_port(protocol, NULL, client, answer_packet.mapping.private_port);
+				int b = get_dnat_rule_by_client_port(protocol, NULL, client, answer_packet->mapping.private_port);
 				if (b == -1) {
 					die("get_dnat_rule_by_client_port returned with error");
 				}
 				else if (b == 1) {
 					/* manual mapping found, answer with refused */
-					answer_packet.answer.result = NATPMP_REFUSED;
-					if (debuglevel >= 2) printf("Lease with public %s port %hu for client %s is mapped manually\n", proto(protocol), ntohs(answer_packet.mapping.public_port), inet_ntoa(t_addr->sin_addr));
+					answer_packet->answer.result = NATPMP_REFUSED;
+					if (debuglevel >= 2) printf("Lease with public %s port %hu for client %s is mapped manually\n", proto(protocol), ntohs(answer_packet->mapping.public_port), inet_ntoa(t_addr->sin_addr));
 				}
 				break;
 			}
 		}
 
-		if (answer_packet.answer.result == NATPMP_SUCCESS) {
+		if (answer_packet->answer.result == NATPMP_SUCCESS) {
 			/* result code, public port and lifetime set to 0 indicate a successful deletion */
-			answer_packet.mapping.public_port = 0;
+			answer_packet->mapping.public_port = 0;
 		}
 	}
 
 	/* fire the packet to the client */
-	send_natpmp_packet(ufd, t_addr, (natpmp_packet_answer *) &answer_packet, sizeof(answer_packet));
+	send_natpmp_packet(ufd, t_addr, (natpmp_packet_answer *) answer_packet, sizeof(*answer_packet));
 
 #ifdef DEBUG_LEASES
 	if (debuglevel >= 2) print_leases();
