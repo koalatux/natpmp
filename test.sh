@@ -19,10 +19,10 @@
 #
 
 
-TARGET_1=192.168.2.1
-TARGET_2=192.168.3.1
-SOURCE_1=192.168.2.16
-SOURCE_2=192.168.3.16
+TARGET_1=192.168.1.16
+TARGET_2=192.168.1.211
+SOURCE_1=192.168.1.211
+SOURCE_2=192.168.1.16
 ERROR=0
 
 function fatal_0 () {
@@ -98,17 +98,25 @@ info_1 "Assigned public port: $public_port"
 lifetime=$((0x$(echo -n "$answer" | cut -c 25-32)))
 info_1 "Mapping lifetime: $lifetime"
 [ $lifetime -gt $r_lifetime ] && error_1 "Lifetime has been raised."
-[ $lifetime -ne $r_lifetime -a $lifetime -lt 3600 ] && warn_1 "Lifetime lower than recommended value."
+#[ $lifetime -ne $r_lifetime -a $lifetime -lt 3600 ] && warn_1 "Lifetime lower than recommended value."
 
 return 0
 }
 
+function set_system() {
+if [ "$1" -eq 1 ]; then
+	TARGET_ADDRESS=$TARGET_1
+	SOURCE_ADDRESS=$SOURCE_1
+else
+	TARGET_ADDRESS=$TARGET_2
+	SOURCE_ADDRESS=$SOURCE_2
+fi
+}
+
 ## start testing ##
 
-TARGET_ADDRESS=$TARGET_1
-SOURCE_ADDRESS=$SOURCE_1
-
 # invalid packets tests #
+set_system 1
 
 # the opcode is not specified (airport sends 0)
 #TODO: don't throw an error on unmatched opcode
@@ -150,9 +158,7 @@ request_mapping 1 2000 2000 604800 && \
 old_public_port=$public_port
 
 # lease stealing tests #
-
-TARGET_ADDRESS=$TARGET_2
-SOURCE_ADDRESS=$SOURCE_2
+set_system 2
 
 info_0 "Trying to steal existing mapping."
 request_mapping 1 2000 $old_public_port 3600 && \
@@ -172,10 +178,8 @@ info_0 "Trying a companion port of a listening process on the router."
 request_mapping 2 5351 5351 3600 && \
 [ $public_port -eq 5351 ] && warn_1 "Companion port of a listening process assigned."
 
-TARGET_ADDRESS=$TARGET_1
-SOURCE_ADDRESS=$SOURCE_1
-
 # lease renewing tests #
+set_system 1
 
 # Remember: This is a limitation in my implementation; you can only acquire companion ports to the same private port.
 info_0 "Trying to get the companion port to a previous mapping."
@@ -186,18 +190,41 @@ info_0 "Trying existing mapping with different public port."
 request_mapping 2 2000 2200 3600 && \
 [ $public_port -ne $old_public_port ] && error_1 "Didn't get the already mapped public port."
 
+# deletion tests #
+set_system 2
+
+#info_0 "Trying to delete a foreign mapping."
+#request_mapping 1 2000 $old_public_port 0 && \
+#[ $lifetime -ne 0 ] && error_1 "Incorrect answer."
+
+info_0 "Trying to delete all UDP mappings."
+request_mapping 1 0 0 0 && \
+[ $lifetime -ne 0 ] && error_1 "Incorrect answer."
+
+info_0 "Trying to delete all TCP mappings."
+request_mapping 2 0 0 0 && \
+[ $lifetime -ne 0 ] && error_1 "Incorrect answer."
+
+set_system 1
+
+info_0 "Trying to delete a companion port of a mapping."
+request_mapping 2 2000 $old_public_port 0 && \
+[ $lifetime -ne 0 ] && error_1 "Incorrect answer."
+
+info_0 "Trying to delete a mapping."
+request_mapping 1 2000 $old_public_port 0 && \
+[ $lifetime -ne 0 ] && error_1 "Incorrect answer."
+
+info_0 "Trying to delete the mapping again."
+request_mapping 1 2000 $old_public_port 0 && \
+[ $lifetime -ne 0 ] && error_1 "Incorrect answer."
+
 # lease renewing and expiring tests #
 
 # TODO: renewing to a smaller leasetime
 # TODO: renewing to a bigger leasetime
 # TODO: simple expiration
 # TODO: expiration of only one protocol when only one exists
-
-# lease deletion tests #
-
-# TODO: single deletion
-# TODO: repeated deletion
-# TODO: all deletion
 
 info_0 "Checking if epoch has been sent correct."
 time_diff=$(( ($epoch - $epoch_start) - ($(date +%s) - $date_start) ))
