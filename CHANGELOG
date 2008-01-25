@@ -1,4 +1,4 @@
-0.2.3	????-??-??
+0.2.3	2008-01-25
 	* Makefile improved. (More compliant usage of environment variables.)
 	* Lease database improved. (Implemented as linked list.)
 	* More tests added to test script. (Removal of leases.)

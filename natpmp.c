@@ -1,6 +1,6 @@
 /*
  *    natpmp - an implementation of NAT-PMP
- *    Copyright (C) 2007  Adrian Friedli
+ *    Copyright (C) 2007-2008  Adrian Friedli
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#define PROGRAM_VERSION "0.2.2"
+#define PROGRAM_VERSION "0.2.3"
 
 #include <arpa/inet.h>
 //#include <sys/types.h>

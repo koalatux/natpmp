@@ -1,5 +1,5 @@
 #    natpmp - an implementation of NAT-PMP
-#    Copyright (C) 2007  Adrian Friedli
+#    Copyright (C) 2007-2008  Adrian Friedli
 #
 #   This program is free software; you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
