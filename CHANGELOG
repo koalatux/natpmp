@@ -1,21 +1,28 @@
+0.2.3	????-??-??
+	* Makefile improved. (More compliant usage of environment variables.)
+	* Lease database improved. (Implemented as linked list.)
+	* More tests added to test script. (Removal of leases.)
+	* Infinite loop bug fixed.
+	* Minor changes.
+
 0.2.2	2008-01-03
-	* patches and suggestions by Nikos Mavrogiannopoulos (thanks a lot): 
-		* better usage of packed attribute.
-		* infinite loop fixed.
-		* even more debugging output.
-	* debian subdirectory removed.
-	* macro for PATH to iptables executable.
-	* minor changes.
+	* Patches and suggestions by Nikos Mavrogiannopoulos (thanks a lot): 
+		* Better usage of packed attribute.
+		* Infinite loop fixed.
+		* Even more debugging output.
+	* Debian subdirectory removed.
+	* Macro for PATH to iptables executable.
+	* Minor changes.
 	* CHANGELOG file added.
 
 0.2.1	2007-11-03
-	* more debugging output added.
-	* lots of bugfixes.
+	* More debugging output added.
+	* Lots of bugfixes.
 
 0.2.0	2007-11-03
-	* verbose and quiet mode introduced.
-	* bugfixes, cleanup and minor changes.
+	* Verbose and quiet mode introduced.
+	* Bugfixes, cleanup and minor changes.
 
 0.1.0	2007-07-22
-	* first release.
-	* initial iptables stuff by Simon Neininger (thanks).
+	* First release.
+	* Initial iptables stuff by Simon Neininger (thanks).
