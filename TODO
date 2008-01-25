@@ -1,3 +1,7 @@
+these things should be implemented:
+* drop user privileges, so natpmp doesn't run as root all the time.
+
+maybe these things get implemented sometime:
 * Implement some logging.
 * Watch dhcp leases by polling the dhcp server's leases file.
 * Watch dhcp leases by some sort of IPC with the dhcp server.
