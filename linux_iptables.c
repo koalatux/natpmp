@@ -68,6 +68,11 @@ static const char * proto(const char protocol) {
 	die("proto: invalid protocol");
 }
 
+static int call_executable(const char *command) {
+	debug_printf("Executing: %s\n", command);
+	return system(command);
+}
+
 /* function that gets wrapped by create_dnat_rule() and destroy_dnat_rule() */
 static int change_dnat_rule(const char c_arg, const char protocol, const uint16_t public_port, const uint32_t client, const uint16_t private_port) {
 	char command[256];
@@ -76,11 +81,16 @@ static int change_dnat_rule(const char c_arg, const char protocol, const uint16_
 
 	snprintf(command, sizeof(command),
 			IPTABLES_BIN " -t nat -%c %s -p %s --dport %d -j DNAT --to-destination %s:%d",
-			c_arg, chain_name, proto(protocol),ntohs(public_port), inet_ntoa(client_addr), ntohs(private_port));
+			c_arg, chain_name, proto(protocol), ntohs(public_port), inet_ntoa(client_addr), ntohs(private_port));
+	if (call_executable(command) < 0) return -1;
 
-	debug_printf("Executing: %s\n", command);
-	int ret = system(command);
-	if (ret < 0) return -1;
+	// TODO: make this run-time configurable
+#ifdef IPTABLES_CREATEFILTERRULE
+	snprintf(command, sizeof(command),
+			IPTABLES_BIN " -t filter -%c %s -p %s --dport %d -d %s -j ACCEPT",
+			c_arg, chain_name, proto(protocol), ntohs(private_port), inet_ntoa(client_addr));
+	if (call_executable(command) < 0) return -1;
+#endif
 
 	return 0;
 }
