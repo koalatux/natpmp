@@ -1,0 +1,16 @@
+# Defaults for natpmp initscript
+# sourced by /etc/init.d/natpmp
+# installed at /etc/default/natpmp by the maintainer scripts
+
+#
+# This is a POSIX shell fragment
+#
+
+# Uncomment to let natpmp be started by its init script.
+#ENABLED=1
+
+# interface used for internet site
+PUBLIC_IF=eth0
+
+# interfaces used for local site
+PRIVATE_IFS="eth1 eth2"
