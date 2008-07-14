@@ -1,0 +1,85 @@
+'\" -*- coding: us-ascii -*-
+.if \n(.g .ds T< \\FC
+.if \n(.g .ds T> \\F[\n[.fam]]
+.de URL
+\\$2 \(la\\$1\(ra\\$3
+..
+.if \n(.g .mso www.tmac
+.TH natpmp 1 "25 January 2008" "" ""
+.SH NAME
+natpmp \- Handles port forwarding requests from clients behind a NAT
+.SH SYNOPSIS
+'nh
+.fi
+.ad l
+\fBnatpmp\fR \kx
+.if (\nx>(\n(.l/2)) .nr x (\n(.l/5)
+'in \n(.iu+\nxu
+[-v | -q] [-b [-p \fIpidfile\fR]] -i \fIpublic-interface\fR -a \fIprivate-address\fR \&... [-t \fImax-lifetime\fR] [-l \fIlower-port\fR] [-u \fIupper-port\fR] [[--] \fIbackend-options\fR]
+'in \n(.iu-\nxu
+.ad b
+'hy
+'nh
+.fi
+.ad l
+\fBnatpmp\fR \kx
+.if (\nx>(\n(.l/2)) .nr x (\n(.l/5)
+'in \n(.iu+\nxu
+-V 
+'in \n(.iu-\nxu
+.ad b
+'hy
+.SH DESCRIPTION
+This is an implementation of NAT-PMP written in C.
+.TP 
+\*(T<\fB\-v\fR\*(T>
+verbose mode
+.TP 
+\*(T<\fB\-q\fR\*(T>
+quiet mode
+.TP 
+\*(T<\fB\-b\fR\*(T>
+fork into background
+.TP 
+\*(T<\fB\-p \fR\*(T>\fIpidfile\fR
+write the process ID to \fIpidfile\fR,
+has only an effect when \*(T<\fB\-b\fR\*(T> is given
+.TP 
+\*(T<\fB\-i \fR\*(T>\fIpublic-interface\fR
+use \fIpublic-interface\fR for internet site
+.TP 
+\*(T<\fB\-a \fR\*(T>\fIprivate-address\fR
+use \fIprivate-address\fR for local site
+
+Don't use 0.0.0.0 here. Better set the ip addresses of each interface.
+\fBnatpmp\fR will exit with failure when the public ip address
+changes and the system can't find a route for sending the multicast announces.
+.TP 
+\*(T<\fB\-t \fR\*(T>\fImax-lifetime\fR
+maximal lifetime of a mapping
+.TP 
+\*(T<\fB\-l \fR\*(T>\fIlowest-port\fR
+lowest port available for mappings
+.TP 
+\*(T<\fB\-u \fR\*(T>\fIupper-port\fR
+highest port available for mappings
+.TP 
+\*(T<\fB\-V\fR\*(T>
+print version and license information
+.SH BACKENDS
+A backend is chosen at compile time.
+At the moment only an iptables backend is available. But there surely will be more.
+.SS IPTABLES
+This backend uses GNU/Linux' iptables to do the port forwardings.
+It takes one option to specify the iptables chain to use. If not set it defaults to \*(T<natpmp\*(T>.
+.SH AUTHOR
+Written by Adrian Friedli.
+.SH "REPORTING BUGS"
+Please report bugs with the bug tracking system on the project page.
+\(lahttp://savannah.nongnu.org/projects/natpmp/\(ra
+.SH COPYRIGHT
+Copyright \(co 2007 Adrian Friedli.
+.PP
+This is free software.
+You may redistribute copies of it under the terms of the GNU General Public License \(lahttp://www.gnu.org/licenses/gpl.html\(ra.
+There is NO WARRANTY, to the extent permitted by law.
