@@ -9,8 +9,12 @@
 # Uncomment to let natpmp be started by its init script.
 #ENABLED=1
 
-# interface used for internet site
+# Iptables chain to hook in, you have to create this chain in your firewall
+# script and jump to this from the PREROUTING chain, the rule will be flushed.
+IPTABLES_CHAIN=natpmp
+
+# Interface used for internet site
 PUBLIC_IF=eth0
 
-# interfaces used for local site
+# Interfaces used for local site
 PRIVATE_IFS="eth1 eth2"

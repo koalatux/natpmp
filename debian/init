@@ -1,4 +1,4 @@
-#! /bin/sh
+#!/bin/sh
 ### BEGIN INIT INFO
 # Provides:          natpmp
 # Required-Start:    $local_fs $remote_fs $network
@@ -22,7 +22,6 @@ SCRIPTNAME=/etc/init.d/$NAME
 DEFAULTSFILE=/etc/default/$NAME
 IP=ip
 IPTABLES=iptables
-IPTABLES_CHAIN=$NAME
 
 # Exit if the package is not installed
 [ -x $DAEMON ] || exit 0
@@ -36,28 +35,22 @@ IPTABLES_CHAIN=$NAME
 # Define LSB log_* functions.
 . /lib/lsb/init-functions
 
-destroy_chains() {
-	$IPTABLES -t nat -D PREROUTING -j $IPTABLES_CHAIN 2>/dev/null || true
-	$IPTABLES -t nat -F $IPTABLES_CHAIN 2>/dev/null || true
-	$IPTABLES -t nat -X $IPTABLES_CHAIN 2>/dev/null || true
-}
-
-create_chains() {
-	destroy_chains
-	$IPTABLES -t nat -N $IPTABLES_CHAIN
-	$IPTABLES -t nat -A PREROUTING -j $IPTABLES_CHAIN
+flush_chain() {
+	$IPTABLES -t nat -F $IPTABLES_CHAIN 2>/dev/null
 }
 
 build_args() {
 	BIND_ARGS=
 	for IF in $PRIVATE_IFS; do
 		# Get the IP address of this interface.
-		ADDR=`$IP addr show dev $IF 2>/dev/null | grep "^ *inet .* $IF\$" | cut -d " " -f 6 | cut -d / -f 1`
+		ADDR=`$IP addr show dev $IF 2>/dev/null \
+		| grep "^ *inet .* $IF\$" | cut -d " " -f 6 | cut -d / -f 1`
 		if [ -n "$ADDR" ] ; then
 			# Add the IP address to the argument list.
 			BIND_ARGS="$BIND_ARGS -a $ADDR"
 		else
-			echo "Could not get IP address of interface $IF. Skipping." >&2
+			echo "Could not get IP address of interface $IF." \
+			"Skipping." >&2
 		fi
 	done
 	DAEMON_OPTS="-b -p $PIDFILE -i $PUBLIC_IF $BIND_ARGS -- $IPTABLES_CHAIN"
@@ -73,12 +66,15 @@ do_start()
 		echo -n " (disabled in $DEFAULTSFILE)"
 		return 0
 	fi
-	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON --test > /dev/null \
-		|| return 1
-	create_chains
+	start-stop-daemon --start --quiet --pidfile $PIDFILE \
+	--exec $DAEMON --test > /dev/null || return 1
+	if ! flush_chain; then
+		echo -n " iptables chain not found"
+		return 2
+	fi
 	build_args
-	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON -- $DAEMON_OPTS > /dev/null \
-		|| return 2
+	start-stop-daemon --start --quiet --pidfile $PIDFILE \
+	--exec $DAEMON -- $DAEMON_OPTS > /dev/null || return 2
 }
 
 do_stop()
@@ -88,12 +84,11 @@ do_stop()
 	#   1 if daemon was already stopped
 	#   2 if daemon could not be stopped
 	#   other if a failure occurred
-	start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --pidfile $PIDFILE --name $NAME
+	start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 \
+	--pidfile $PIDFILE --name $NAME
 	RETVAL="$?"
 	[ "$RETVAL" = 2 ] && return 2
-	#start-stop-daemon --stop --quiet --oknodo --retry=0/30/KILL/5 --exec $DAEMON
-	#[ "$?" = 2 ] && return 2
-	destroy_chains
+	flush_chain
 	rm -f $PIDFILE
 	return "$RETVAL"
 }
@@ -103,16 +98,16 @@ case "$1" in
 	[ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC" "$NAME"
 	do_start
 	case "$?" in
-		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
-		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 || true ;;
+		2) [ "$VERBOSE" != no ] && log_end_msg 1 || false ;;
 	esac
 	;;
   stop)
 	[ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
 	do_stop
 	case "$?" in
-		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
-		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 || true ;;
+		2) [ "$VERBOSE" != no ] && log_end_msg 1 || false ;;
 	esac
 	;;
   restart|force-reload)
