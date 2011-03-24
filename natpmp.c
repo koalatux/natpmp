@@ -46,6 +46,9 @@
 /* level of verbosity */
 int debuglevel;
 
+/* background */
+int do_fork = 0;
+
 /* the file to write the PID to */
 char * pidfile;
 
@@ -421,12 +424,14 @@ void fork_to_background() {
 	pid_t child = fork();
 	if (child == -1) p_die("fork");
 	else if (child) {
-		if (debuglevel >= 1) printf("forked into background -- %i\n", child);
+
+		openlog("natpmp", LOG_PID, LOG_DAEMON);
+		if (debuglevel >= 1) syslog(LOG_DEBUG, "forked into background -- %i\n", child);
 		if (pidfile) {
 			FILE * pidfilefd;
 			pidfilefd = fopen(pidfile, "w");
 			if (pidfilefd == NULL) {
-				fprintf(stderr, "Could not write PID to file %s.\n", pidfile);
+				syslog(LOG_ERR, "Could not write PID to file %s.\n", pidfile);
 			}
 			else {
 				fprintf(pidfilefd, "%i\n", child);
@@ -533,8 +538,6 @@ void print_public_ip_address() {
 }
 
 void init(int argc, char * argv[]) {
-	int do_fork = 0;
-
 	/* set defaults */
 	max_lifetime = NATPMP_RECOMMENDED_LIFETIME;
 	port_range_low = 1024; /* ports below 1024 are restricted ports */

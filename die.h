@@ -16,9 +16,11 @@
  *   with this program; if not, write to the Free Software Foundation, Inc.,
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
+#include <syslog.h>
 
 extern int debuglevel;
-#define debug_printf(...) { if (debuglevel >= 2) fprintf(stderr, __VA_ARGS__); }
+extern int do_fork;
+#define debug_printf(...) { if (debuglevel >= 2) { if (do_fork) syslog(LOG_DEBUG, __VA_ARGS__); else fprintf(stderr, __VA_ARGS__); } }
 
 void die(const char * e) __attribute__ ((noreturn)) ;
 void p_die(const char * p) __attribute__ ((noreturn)) ;
