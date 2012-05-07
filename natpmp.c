@@ -439,6 +439,11 @@ void fork_to_background() {
 			}
 		}
 		exit(EXIT_SUCCESS);
+	} else {
+		chdir("/");
+		fclose(stdin);
+		fclose(stdout);
+		fclose(stderr);
 	}
 }
 
@@ -677,6 +682,11 @@ void init(int argc, char * argv[]) {
 		if (port_range_high < port_range_low) {
 			fprintf(stderr, "%s: lower port may not be smaller than upper port. \n", argv[0]);
 			print_usage(argv[0]);
+			exit(EXIT_FAILURE);
+		}
+
+		if (debuglevel && do_fork) {
+			fprintf(stderr, "%s: can't log from background.\n", argv[0]);
 			exit(EXIT_FAILURE);
 		}
 
